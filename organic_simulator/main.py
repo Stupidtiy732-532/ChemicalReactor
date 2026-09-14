@@ -687,6 +687,392 @@ class MoleculeAnalyzer:
             )
 
 
+class ReactionSite:
+    def __init__(self, site_type, atom_ids, description):
+        self.site_type = site_type
+        self.atom_ids = atom_ids
+        self.description = description
+
+    def __str__(self):
+        atoms = ", ".join(str(x) for x in self.atom_ids)
+        return f"{self.site_type} at atoms [{atoms}]: {self.description}"
+
+
+class Reagent:
+    def __init__(self, name, aliases, reaction_type):
+        self.name = name
+        self.aliases = aliases
+        self.reaction_type = reaction_type
+
+    def matches(self, text):
+        text = text.lower().strip()
+        return text == self.name.lower() or text in self.aliases
+
+
+class ReactionResult:
+    def __init__(self):
+        self.products = []
+        self.byproducts = []
+        self.reacted_sites = 0
+        self.unreacted_sites = 0
+        self.reagent_consumed = 0.0
+        self.notes = []
+
+    def display(self):
+        print("\n--- Reaction Result ---")
+
+        print(f"Reacted sites: {self.reacted_sites}")
+        print(f"Unreacted sites: {self.unreacted_sites}")
+        print(f"Reagent consumed: {self.reagent_consumed:g} mol")
+
+        if self.products:
+            print("\nProducts:")
+            for product in self.products:
+                print(f"  - {product}")
+
+        if self.byproducts:
+            print("\nBy-products:")
+            for byproduct in self.byproducts:
+                print(f"  - {byproduct}")
+
+        if self.notes:
+            print("\nNotes:")
+            for note in self.notes:
+                print(f"  - {note}")
+
+
+class ReactionEngine:
+    def __init__(self):
+        self.reagents = [
+            Reagent(
+                "Na",
+                ["sodium", "metallic sodium"],
+                "sodium_reaction"
+            ),
+            Reagent(
+                "NaHCO3",
+                ["nahco3", "sodium bicarbonate", "baking soda"],
+                "bicarbonate"
+            ),
+            Reagent(
+                "H2/Ni",
+                ["h2", "hydrogen", "hydrogen nickel", "h2 ni"],
+                "hydrogenation"
+            ),
+            Reagent(
+                "Br2",
+                ["br2", "bromine"],
+                "bromination"
+            ),
+        ]
+
+    def find_reagent(self, text):
+        for reagent in self.reagents:
+            if reagent.matches(text):
+                return reagent
+
+        return None
+
+    def calculate_reacted_sites(
+        self,
+        available_sites,
+        reagent_moles,
+        reagent_coefficient=1
+    ):
+        if reagent_moles is None:
+            return available_sites
+
+        possible_reactions = int(
+            reagent_moles // reagent_coefficient
+        )
+
+        return min(available_sites, possible_reactions)
+
+    def detect_sites(self, molecule):
+        sites = []
+
+        for group in molecule.functional_groups:
+            group_type = group.name.lower()
+
+            if "alcohol" in group_type:
+                sites.append(
+                    ReactionSite(
+                        "alcohol",
+                        group.atom_ids,
+                        "Alcohol O-H bond"
+                    )
+                )
+
+            elif "carboxylic" in group_type:
+                sites.append(
+                    ReactionSite(
+                        "carboxylic_acid",
+                        group.atom_ids,
+                        "Carboxylic acid O-H bond"
+                    )
+                )
+
+            elif "carbonyl" in group_type:
+                sites.append(
+                    ReactionSite(
+                        "carbonyl",
+                        group.atom_ids,
+                        "Carbonyl group"
+                    )
+                )
+
+        for bond in molecule.bonds:
+            if bond.order == 2:
+                atom_a = molecule.atoms[bond.atom1]
+                atom_b = molecule.atoms[bond.atom2]
+
+                if atom_a.element == "C" and atom_b.element == "C":
+                    sites.append(
+                        ReactionSite(
+                            "alkene",
+                            [bond.atom1, bond.atom2],
+                            "Carbon-carbon double bond"
+                        )
+                    )
+
+        return sites
+
+    def react(
+        self,
+        molecule,
+        reagent_text,
+        reagent_moles=None,
+        excess=False
+    ):
+        reagent = self.find_reagent(reagent_text)
+
+        if reagent is None:
+            print(f"Unknown reagent: {reagent_text}")
+            return None
+
+        sites = self.detect_sites(molecule)
+
+        result = ReactionResult()
+
+        if reagent.reaction_type == "sodium_reaction":
+            return self.react_with_sodium(
+                molecule,
+                sites,
+                reagent_moles,
+                excess
+            )
+
+        if reagent.reaction_type == "bicarbonate":
+            return self.react_with_bicarbonate(
+                molecule,
+                sites,
+                reagent_moles,
+                excess
+            )
+
+        if reagent.reaction_type == "hydrogenation":
+            return self.react_with_hydrogen(
+                molecule,
+                sites,
+                reagent_moles,
+                excess
+            )
+
+        if reagent.reaction_type == "bromination":
+            return self.react_with_bromine(
+                molecule,
+                sites,
+                reagent_moles,
+                excess
+            )
+
+        return result
+
+    def react_with_sodium(
+        self,
+        molecule,
+        sites,
+        reagent_moles,
+        excess
+    ):
+        result = ReactionResult()
+
+        eligible_sites = [
+            site for site in sites
+            if site.site_type in [
+                "alcohol",
+                "carboxylic_acid"
+            ]
+        ]
+
+        if excess:
+            reacted = len(eligible_sites)
+        else:
+            reacted = self.calculate_reacted_sites(
+                len(eligible_sites),
+                reagent_moles
+            )
+
+        result.reacted_sites = reacted
+        result.unreacted_sites = len(eligible_sites) - reacted
+        result.reagent_consumed = reacted
+
+        alcohol_count = sum(
+            1 for site in eligible_sites[:reacted]
+            if site.site_type == "alcohol"
+        )
+
+        acid_count = sum(
+            1 for site in eligible_sites[:reacted]
+            if site.site_type == "carboxylic_acid"
+        )
+
+        if alcohol_count:
+            result.products.append(
+                f"{alcohol_count} mol sodium alkoxide"
+            )
+
+        if acid_count:
+            result.products.append(
+                f"{acid_count} mol sodium carboxylate"
+            )
+
+        total_hydrogen = reacted / 2
+
+        if total_hydrogen > 0:
+            result.byproducts.append(
+                f"{total_hydrogen:g} mol H2"
+            )
+
+        result.notes.append(
+            "Each O-H group consumes one mol of sodium."
+        )
+
+        return result
+
+    def react_with_bicarbonate(
+        self,
+        molecule,
+        sites,
+        reagent_moles,
+        excess
+    ):
+        result = ReactionResult()
+
+        eligible_sites = [
+            site for site in sites
+            if site.site_type == "carboxylic_acid"
+        ]
+
+        if excess:
+            reacted = len(eligible_sites)
+        else:
+            reacted = self.calculate_reacted_sites(
+                len(eligible_sites),
+                reagent_moles
+            )
+
+        result.reacted_sites = reacted
+        result.unreacted_sites = len(eligible_sites) - reacted
+        result.reagent_consumed = reacted
+
+        if reacted:
+            result.products.append(
+                f"{reacted} mol sodium carboxylate"
+            )
+
+            result.byproducts.append(
+                f"{reacted} mol CO2"
+            )
+
+            result.byproducts.append(
+                f"{reacted} mol H2O"
+            )
+
+        result.notes.append(
+            "Only carboxylic acids react appreciably with NaHCO3."
+        )
+
+        return result
+
+    def react_with_hydrogen(
+        self,
+        molecule,
+        sites,
+        reagent_moles,
+        excess
+    ):
+        result = ReactionResult()
+
+        eligible_sites = [
+            site for site in sites
+            if site.site_type == "alkene"
+        ]
+
+        if excess:
+            reacted = len(eligible_sites)
+        else:
+            reacted = self.calculate_reacted_sites(
+                len(eligible_sites),
+                reagent_moles
+            )
+
+        result.reacted_sites = reacted
+        result.unreacted_sites = len(eligible_sites) - reacted
+        result.reagent_consumed = reacted
+
+        if reacted:
+            result.products.append(
+                f"{reacted} mol hydrogenated alkane portion"
+            )
+
+        result.notes.append(
+            "Each C=C bond consumes one mol H2."
+        )
+
+        return result
+
+    def react_with_bromine(
+        self,
+        molecule,
+        sites,
+        reagent_moles,
+        excess
+    ):
+        result = ReactionResult()
+
+        eligible_sites = [
+            site for site in sites
+            if site.site_type == "alkene"
+        ]
+
+        if excess:
+            reacted = len(eligible_sites)
+        else:
+            reacted = self.calculate_reacted_sites(
+                len(eligible_sites),
+                reagent_moles
+            )
+
+        result.reacted_sites = reacted
+        result.unreacted_sites = len(eligible_sites) - reacted
+        result.reagent_consumed = reacted
+
+        if reacted:
+            result.products.append(
+                f"{reacted} mol vicinal dibromoalkane portion"
+            )
+
+        result.notes.append(
+            "Each C=C bond consumes one mol Br2."
+        )
+
+        return result
+
+
+
+
+
 # ============================================================
 # DISPLAY
 # ============================================================
@@ -801,6 +1187,55 @@ def main():
             analyzer.analyze(molecule)
 
             display_molecule(molecule)
+            reaction_engine = ReactionEngine()
+
+            while True:
+                reagent_input = input(
+                    "\nEnter reagent, or press Enter to skip reaction: "
+                ).strip()
+
+                if reagent_input == "":
+                    break
+
+                reagent = reaction_engine.find_reagent(reagent_input)
+
+                if reagent is None:
+                    print("Unknown reagent.")
+                    continue
+
+                excess_input = input(
+                    "Use reagent in excess? (y/n): "
+                ).strip().lower()
+
+                excess = excess_input == "y"
+
+                reagent_moles = None
+
+                if not excess:
+                    while True:
+                        try:
+                            reagent_moles = float(
+                                input("Enter reagent amount in mol: ")
+                            )
+
+                            if reagent_moles < 0:
+                                print("Amount cannot be negative.")
+                                continue
+
+                            break
+
+                        except ValueError:
+                            print("Enter a valid numerical amount.")
+
+                result = reaction_engine.react(
+                    molecule,
+                    reagent_input,
+                    reagent_moles,
+                    excess
+                )
+
+                if result is not None:
+                    result.display()
 
         except Exception as error:
             print()
