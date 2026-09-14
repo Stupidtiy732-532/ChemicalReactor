@@ -2,6 +2,8 @@ import os
 
 from analyzer import StructureParser, StructureAnalyzer
 from reagents import ReagentDatabase
+from reactions import ReactionEngine
+from species import SpeciesParser
 
 
 def clear_screen():
@@ -153,41 +155,63 @@ def reagent_database_mode(database):
 
 
 def reaction_mode(database):
-    from reactions import ReactionEngine
-
     engine = ReactionEngine()
-
-    current_structure = None
+    current_formula = None
+    current_groups = []
 
     while True:
         header("REACTION MODE")
 
-        print("1. Enter new molecule")
-        print("2. Enter reagent manually")
+        print(f"Current molecule: {current_formula or 'None'}")
+        print(
+            "Current reagents: "
+            + (engine.reagent_text() or "None")
+        )
+
+        print()
+        print("1. Enter molecule")
+        print("2. Enter any reagent manually")
         print("3. Choose reagent from database")
-        print("4. Show current molecule")
-        print("5. Run reaction")
-        print("6. Back")
+        print("4. Remove reagent")
+        print("5. Clear reagents")
+        print("6. Run reaction")
+        print("7. Back")
 
         choice = input("\nSelect: ").strip()
 
         if choice == "1":
-            structure = read_structure()
+            formula = input(
+                "\nEnter molecular formula/structure: "
+            ).strip()
 
-            if structure is not None:
-                current_structure = structure
+            if formula:
+                current_formula = formula
+
+                groups_text = input(
+                    "\nEnter recognised functional groups "
+                    "separated by commas:\n"
+                    "Example: primary alcohol, alkene\n"
+                    "Groups: "
+                ).strip()
+
+                current_groups = [
+                    group.strip().lower()
+                    for group in groups_text.split(",")
+                    if group.strip()
+                ]
+
                 print("\nMolecule loaded.")
 
             pause()
 
         elif choice == "2":
-            reagent_name = input(
-                "\nEnter any reagent or chemical species: "
+            reagent = input(
+                "\nEnter any reagent, acid, base or species: "
             ).strip()
 
-            if reagent_name:
-                engine.add_reagent(reagent_name)
-                print(f"\nAdded reagent: {reagent_name}")
+            if reagent:
+                engine.add_reagent(reagent)
+                print(f"\nAdded reagent: {reagent}")
 
             pause()
 
@@ -201,62 +225,101 @@ def reaction_mode(database):
             )
 
             reagent = database.get_by_number(number)
-
             engine.add_reagent(reagent.formula)
 
-            print(f"\nAdded: {reagent.name}")
-
+            print(f"\nAdded reagent: {reagent.formula}")
             pause()
 
         elif choice == "4":
-            if current_structure is None:
-                print("\nNo molecule loaded.")
-            else:
-                atoms, bonds = current_structure
-                analyzer = StructureAnalyzer(atoms, bonds)
-                analyzer.report()
+            if not engine.reagents:
+                print("\nNo reagents loaded.")
+                pause()
+                continue
 
+            for index, reagent in enumerate(
+                engine.reagents,
+                start=1
+            ):
+                print(f"{index}. {reagent}")
+
+            number = read_number(
+                "\nSelect reagent to remove: ",
+                1,
+                len(engine.reagents)
+            )
+
+            removed = engine.reagents[number - 1]
+            engine.remove_reagent(removed)
+
+            print(f"\nRemoved: {removed}")
             pause()
 
         elif choice == "5":
-            if current_structure is None:
+            engine.clear_reagents()
+            print("\nAll reagents cleared.")
+            pause()
+
+        elif choice == "6":
+            if current_formula is None:
                 print("\nEnter a molecule first.")
                 pause()
                 continue
 
             if not engine.reagents:
-                print("\nAdd at least one reagent first.")
+                print("\nEnter at least one reagent.")
                 pause()
                 continue
 
-            atoms, bonds = current_structure
-
             result = engine.react(
-                atoms,
-                bonds,
-                engine.reagents
+                current_formula,
+                current_groups
             )
 
             print("\nREACTION RESULT")
-            print("=" * 60)
+            print("=" * 80)
             print(result)
-
-            use_product = input(
-                "\nUse product as next molecule? [y/n]: "
-            ).lower()
-
-            if use_product == "y" and result.product is not None:
-                current_structure = (
-                    result.product.atoms,
-                    result.product.bonds
-                )
-
-                print("\nProduct loaded as current molecule.")
 
             pause()
 
-        elif choice == "6":
+        elif choice == "7":
             return
+
+
+def species_analysis_mode():
+    parser = SpeciesParser()
+
+    while True:
+        header("CHEMICAL SPECIES MODE")
+
+        print("1. Dissociate species")
+        print("2. Classify species")
+        print("3. Back")
+
+        choice = input("\nSelect: ").strip()
+
+        if choice == "3":
+            return
+
+        if choice not in {"1", "2"}:
+            continue
+
+        formula = input(
+            "\nEnter any chemical species: "
+        ).strip()
+
+        if not formula:
+            continue
+
+        if choice == "1":
+            parser.explain(formula)
+
+        elif choice == "2":
+            print(
+                f"\nClassification: "
+                f"{parser.classify(formula)}"
+            )
+
+        pause()
 
 
 def functional_group_database_mode():
@@ -329,7 +392,8 @@ def main_menu():
         print("2. Structure analysis mode")
         print("3. Reagent database")
         print("4. Functional-group database")
-        print("5. Exit")
+        print("5. Chemical species / acid-base mode")
+        print("6. Exit")
 
         choice = input("\nSelect mode: ").strip()
 
@@ -346,6 +410,9 @@ def main_menu():
             functional_group_database_mode()
 
         elif choice == "5":
+            species_analysis_mode()
+
+        elif choice == "6":
             clear_screen()
             print("Chemicalist closed.")
             break

@@ -1,5 +1,8 @@
 """
-Chemical species and simplified acid/base dissociation.
+Chemical species handling.
+
+This is a simplified acid/base dissociation system.
+It does not calculate equilibrium constants yet.
 """
 
 
@@ -11,37 +14,40 @@ class Species:
         charge=0,
         phase="unknown"
     ):
-        self.formula = formula
+        self.formula = formula.strip()
         self.charge = charge
         self.phase = phase
 
-    def __repr__(self):
+    def __str__(self):
         if self.charge == 0:
-            charge = ""
-        elif self.charge == 1:
-            charge = "+"
-        elif self.charge == -1:
-            charge = "-"
-        else:
-            charge = f"{self.charge:+d}"
+            return self.formula
 
-        return f"{self.formula}{charge}"
+        if self.charge == 1:
+            return self.formula + "+"
+
+        if self.charge == -1:
+            return self.formula + "-"
+
+        return f"{self.formula}{self.charge:+d}"
 
 
 class SpeciesParser:
 
+    # Strong acids and common weak acids.
     ACIDS = {
         "HCl": ["H+", "Cl-"],
         "HBr": ["H+", "Br-"],
         "HI": ["H+", "I-"],
         "HNO3": ["H+", "NO3-"],
-        "H2SO4": ["H+", "HSO4-"],
-        "HSO4": ["H+", "SO4-2"],
         "HClO4": ["H+", "ClO4-"],
         "HClO3": ["H+", "ClO3-"],
+        "H2SO4": ["H+", "HSO4-"],
+        "HSO4-": ["H+", "SO4-2"],
+        "H2CO3": ["H+", "HCO3-"],
+        "HCO3-": ["H+", "CO3-2"],
         "CH3COOH": ["H+", "CH3COO-"],
         "HCOOH": ["H+", "HCOO-"],
-        "H2CO3": ["H+", "HCO3-"],
+        "C6H5COOH": ["H+", "C6H5COO-"],
         "NH4+": ["H+", "NH3"],
     }
 
@@ -49,9 +55,8 @@ class SpeciesParser:
         "NaOH": ["Na+", "OH-"],
         "KOH": ["K+", "OH-"],
         "LiOH": ["Li+", "OH-"],
-        "Ca(OH)2": ["Ca+2", "OH-", "OH-"],
-        "Ba(OH)2": ["Ba+2", "OH-", "OH-"],
         "NH3": ["NH4+", "OH-"],
+        "NH2-": ["NH3"],
     }
 
     SALTS = {
@@ -59,8 +64,12 @@ class SpeciesParser:
         "KCl": ["K+", "Cl-"],
         "NaBr": ["Na+", "Br-"],
         "KBr": ["K+", "Br-"],
+        "NaI": ["Na+", "I-"],
+        "KI": ["K+", "I-"],
         "NaNO3": ["Na+", "NO3-"],
         "KNO3": ["K+", "NO3-"],
+        "NaHCO3": ["Na+", "HCO3-"],
+        "Na2CO3": ["Na+", "Na+", "CO3-2"],
         "Na2SO4": ["Na+", "Na+", "SO4-2"],
         "K2SO4": ["K+", "K+", "SO4-2"],
     }
@@ -78,3 +87,33 @@ class SpeciesParser:
             return self.SALTS[formula]
 
         return [formula]
+
+    def classify(self, formula):
+        formula = formula.strip()
+
+        if formula in self.ACIDS:
+            return "acid"
+
+        if formula in self.BASES:
+            return "base"
+
+        if formula in self.SALTS:
+            return "salt"
+
+        if formula in {"H+", "H3O+"}:
+            return "acidic ion"
+
+        if formula in {"OH-", "NH2-"}:
+            return "basic ion"
+
+        return "unknown"
+
+    def explain(self, formula):
+        species_type = self.classify(formula)
+        products = self.dissociate(formula)
+
+        print("\nSPECIES ANALYSIS")
+        print("=" * 60)
+        print(f"Input      : {formula}")
+        print(f"Type       : {species_type}")
+        print(f"Dissociates: {' + '.join(products)}")
