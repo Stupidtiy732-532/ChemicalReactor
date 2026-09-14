@@ -1,403 +1,567 @@
-"""
-Reaction engine.
+# reactions.py
 
-Known reactions are handled explicitly.
-Unknown reagents are still accepted and analysed.
-"""
-
-from species import SpeciesParser
+from analyzer import detect_functional_groups
+from molecule import Molecule
 
 
 class ReactionResult:
-
-    def __init__(
-        self,
-        success=False,
-        reaction="",
-        explanation="",
-        products=None,
-        product=None
-    ):
-        self.success = success
-        self.reaction = reaction
+    def __init__(self, reactant, products, equation, explanation):
+        self.reactant = reactant
+        self.products = products
+        self.equation = equation
         self.explanation = explanation
-        self.products = products or []
-        self.product = product
 
-    def __str__(self):
-        output = []
+    def display(self):
+        print("\nREACTION")
+        print("-" * 60)
+        print(self.equation)
+        print()
+        print(self.explanation)
+        print()
+        print("PRODUCTS")
 
-        output.append(
-            "Reaction detected: "
-            + ("YES" if self.success else "NO")
-        )
-
-        if self.reaction:
-            output.append(f"\nReaction:\n{self.reaction}")
-
-        if self.explanation:
-            output.append(f"\nExplanation:\n{self.explanation}")
-
-        if self.products:
-            output.append(
-                "\nProducts:\n"
-                + "\n".join(f"  - {product}" for product in self.products)
-            )
-
-        return "\n".join(output)
+        for product in self.products:
+            if isinstance(product, Molecule):
+                print(
+                    f"{product.condensed()}   "
+                    f"[{product.formula()}]"
+                )
+            else:
+                print(product)
 
 
 class ReactionEngine:
+    def react(self, molecule, reagent, conditions=""):
+        reagent_clean = reagent.lower().replace(" ", "")
+        conditions_clean = conditions.lower().replace(" ", "")
 
-    def __init__(self):
-        self.reagents = []
-        self.species_parser = SpeciesParser()
+        groups = detect_functional_groups(molecule)
 
-    def add_reagent(self, reagent):
-        reagent = reagent.strip()
+        if self.is_oxidant(reagent_clean):
+            return self.oxidation(molecule)
 
-        if reagent and reagent not in self.reagents:
-            self.reagents.append(reagent)
+        if self.is_reducing_agent(reagent_clean):
+            return self.reduction(molecule)
 
-    def remove_reagent(self, reagent):
-        if reagent in self.reagents:
-            self.reagents.remove(reagent)
+        if self.is_aqueous_koh(reagent_clean, conditions_clean):
+            return self.aqueous_substitution(molecule)
 
-    def clear_reagents(self):
-        self.reagents.clear()
+        if self.is_alcoholic_koh(reagent_clean, conditions_clean):
+            return self.elimination(molecule)
 
-    def reagent_text(self):
-        return ", ".join(self.reagents)
+        if reagent_clean in {"br2", "bromine"}:
+            return self.bromination(molecule)
 
-    def react(self, formula, functional_groups=None):
-        functional_groups = functional_groups or []
+        if reagent_clean in {"h2/n i", "h2/ni", "h2", "h2/pd", "h2/pt"}:
+            return self.hydrogenation(molecule)
 
-        if not self.reagents:
-            return ReactionResult(
-                success=False,
-                explanation="No reagents have been entered."
-            )
+        if reagent_clean in {"na", "sodium"}:
+            return self.sodium_reaction(molecule)
 
-        all_results = []
+        if reagent_clean in {"nahco3", "nahco₃", "sodiumbicarbonate"}:
+            return self.bicarbonate_reaction(molecule)
 
-        for reagent in self.reagents:
-            result = self.react_single(
-                formula,
-                reagent,
-                functional_groups
-            )
+        if reagent_clean in {"hbr", "hcl", "hi"}:
+            return self.hydrohalogenation(molecule, reagent_clean)
 
-            all_results.append(result)
+        if reagent_clean in {"h2o/h+", "h2o", "dil.h2so4"}:
+            return self.hydration(molecule)
 
-        return self.combine_results(all_results)
+        if reagent_clean in {"conc.h2so4", "h2so4", "h3po4"}:
+            return self.dehydration(molecule)
 
-    def react_single(
-        self,
-        formula,
-        reagent,
-        functional_groups
-    ):
-        formula = formula.strip()
-        reagent = reagent.strip()
+        raise ValueError(
+            "No reaction rule implemented for this reagent yet."
+        )
 
-        reagent_lower = reagent.lower()
-
-        # -------------------------------------------------
-        # ACID-BASE DISSOCIATION
-        # -------------------------------------------------
-
-        if reagent in self.species_parser.ACIDS:
-            ions = self.species_parser.dissociate(reagent)
-
-            return ReactionResult(
-                success=True,
-                reaction=f"{reagent} → {' + '.join(ions)}",
-                explanation=(
-                    "The entered reagent is recognised as an acid. "
-                    "Its acidic proton is represented as H+."
-                ),
-                products=ions
-            )
-
-        if reagent in self.species_parser.BASES:
-            ions = self.species_parser.dissociate(reagent)
-
-            return ReactionResult(
-                success=True,
-                reaction=f"{reagent} → {' + '.join(ions)}",
-                explanation=(
-                    "The entered reagent is recognised as a base. "
-                    "It produces hydroxide or another basic species."
-                ),
-                products=ions
-            )
-
-        if reagent in self.species_parser.SALTS:
-            ions = self.species_parser.dissociate(reagent)
-
-            return ReactionResult(
-                success=True,
-                reaction=f"{reagent} → {' + '.join(ions)}",
-                explanation="The entered salt was split into its ions.",
-                products=ions
-            )
-
-        # -------------------------------------------------
-        # SODIUM METAL + ALCOHOL
-        # -------------------------------------------------
-
-        if reagent in {"Na", "sodium"}:
-            if "alcohol" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=(
-                        f"{formula} + Na → "
-                        f"{formula.replace('OH', 'ONa')} + H2"
-                    ),
-                    explanation=(
-                        "Sodium removes the acidic hydrogen of the "
-                        "alcoholic OH group."
-                    ),
-                    products=[
-                        formula.replace("OH", "ONa"),
-                        "H2"
-                    ]
-                )
-
-            if "carboxylic acid" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=(
-                        f"{formula} + Na → "
-                        f"{formula.replace('COOH', 'COONa')} + H2"
-                    ),
-                    explanation=(
-                        "Sodium reacts with the acidic proton of "
-                        "the carboxylic acid."
-                    ),
-                    products=[
-                        formula.replace("COOH", "COONa"),
-                        "H2"
-                    ]
-                )
-
-        # -------------------------------------------------
-        # BICARBONATE TEST
-        # -------------------------------------------------
-
-        if reagent in {"NaHCO3", "sodium bicarbonate"}:
-            if "carboxylic acid" in functional_groups:
-                salt = formula.replace("COOH", "COONa")
-
-                return ReactionResult(
-                    success=True,
-                    reaction=(
-                        f"{formula} + NaHCO3 → "
-                        f"{salt} + CO2 + H2O"
-                    ),
-                    explanation=(
-                        "Carboxylic acids release carbon dioxide "
-                        "with sodium bicarbonate."
-                    ),
-                    products=[salt, "CO2", "H2O"]
-                )
-
-        # -------------------------------------------------
-        # OXIDATION
-        # -------------------------------------------------
-
+    def is_oxidant(self, reagent):
         oxidants = {
-            "KMnO4",
-            "K2Cr2O7",
-            "K2Cr2O7/H+",
-            "PCC",
-            "PDC",
-            "CrO3",
-            "H2CrO4",
-            "Jones reagent",
-            "O3",
-            "Tollens",
-            "Fehling",
+            "kmno4",
+            "kmno4/h+",
+            "k2cr2o7",
+            "k2cr2o7/h+",
+            "pcc",
+            "jones",
+            "cro3",
+            "oxidation",
         }
 
-        if reagent in oxidants or "oxid" in reagent_lower:
-            if "primary alcohol" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → aldehyde / carboxylic acid",
-                    explanation=(
-                        "A primary alcohol can be oxidised first "
-                        "to an aldehyde and further to a carboxylic acid."
-                    ),
-                    products=["aldehyde", "carboxylic acid"]
-                )
+        return reagent in oxidants
 
-            if "secondary alcohol" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → ketone",
-                    explanation="Secondary alcohol oxidation gives a ketone.",
-                    products=["ketone"]
-                )
-
-            if "aldehyde" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → carboxylic acid",
-                    explanation="Aldehydes can be oxidised to carboxylic acids.",
-                    products=["carboxylic acid"]
-                )
-
-        # -------------------------------------------------
-        # REDUCTION
-        # -------------------------------------------------
-
-        reductants = {
-            "H2/Ni",
-            "H2/Pd",
-            "H2/Pt",
-            "NaBH4",
-            "LiAlH4",
-            "DIBAL-H",
-            "Zn/HCl",
-            "Zn-Hg/HCl",
-            "NH2NH2/KOH",
+    def is_reducing_agent(self, reagent):
+        reducers = {
+            "nab h4".replace(" ", ""),
+            "nabh4",
+            "lialh4",
+            "h2/ni",
+            "h2/pd",
+            "h2/pt",
+            "reduction",
         }
 
-        if reagent in reductants or "reduc" in reagent_lower:
-            if "alkene" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} + H2 → alkane",
-                    explanation="Catalytic hydrogenation reduces C=C.",
-                    products=["alkane"]
-                )
+        return reagent in reducers
 
-            if "alkyne" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} + 2H2 → alkane",
-                    explanation="Complete hydrogenation reduces C≡C.",
-                    products=["alkane"]
-                )
-
-            if "aldehyde" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → primary alcohol",
-                    explanation="Aldehydes reduce to primary alcohols.",
-                    products=["primary alcohol"]
-                )
-
-            if "ketone" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → secondary alcohol",
-                    explanation="Ketones reduce to secondary alcohols.",
-                    products=["secondary alcohol"]
-                )
-
-        # -------------------------------------------------
-        # HALOGENATION
-        # -------------------------------------------------
-
-        if reagent in {"Br2", "Cl2"}:
-            if "alkene" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} + {reagent} → vicinal dihalo compound",
-                    explanation=(
-                        "Halogen adds across the carbon-carbon double bond."
-                    ),
-                    products=["vicinal dihalo compound"]
-                )
-
-        # -------------------------------------------------
-        # SUBSTITUTION
-        # -------------------------------------------------
-
-        if reagent in {
-            "KOH(aq)",
-            "NaOH(aq)",
-            "KOH",
-            "NaOH"
-        }:
-            if "halo compound" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → alcohol",
-                    explanation=(
-                        "Aqueous hydroxide promotes nucleophilic "
-                        "substitution of a haloalkane."
-                    ),
-                    products=["alcohol"]
-                )
-
-        # -------------------------------------------------
-        # ELIMINATION
-        # -------------------------------------------------
-
-        if reagent in {
-            "KOH(alc)",
-            "NaOH(alc)",
-            "alcoholic KOH",
-            "alcoholic NaOH"
-        }:
-            if "halo compound" in functional_groups:
-                return ReactionResult(
-                    success=True,
-                    reaction=f"{formula} → alkene",
-                    explanation=(
-                        "Alcoholic hydroxide and heat promote "
-                        "β-elimination."
-                    ),
-                    products=["alkene"]
-                )
-
-        # -------------------------------------------------
-        # UNKNOWN REAGENT
-        # -------------------------------------------------
-
-        return ReactionResult(
-            success=False,
-            reaction="No implemented transformation",
-            explanation=(
-                f"'{reagent}' was accepted as an arbitrary reagent, "
-                "but no reaction rule currently matches it."
-            ),
-            products=[]
+    def is_aqueous_koh(self, reagent, conditions):
+        return (
+            reagent in {"koh", "naoh"}
+            and (
+                "aq" in conditions
+                or "aqueous" in conditions
+                or conditions == ""
+            )
         )
 
-    def combine_results(self, results):
-        successful = [
-            result for result in results
-            if result.success
-        ]
+    def is_alcoholic_koh(self, reagent, conditions):
+        return (
+            reagent in {"koh", "naoh"}
+            and (
+                "alc" in conditions
+                or "alcoholic" in conditions
+                or "heat" in conditions
+            )
+        )
 
-        if not successful:
+    def oxidation(self, molecule):
+        product = molecule.clone()
+        groups = detect_functional_groups(product)
+
+        if "primary alcohol" in groups:
+            self.convert_primary_alcohol_to_aldehyde(product)
+
             return ReactionResult(
-                success=False,
-                explanation="\n\n".join(
-                    result.explanation for result in results
-                )
+                molecule,
+                [product],
+                f"{molecule.condensed()} + [O] → "
+                f"{product.condensed()}",
+                "Primary alcohol oxidised to aldehyde.",
             )
 
-        reaction_text = "\n".join(
-            result.reaction for result in successful
-        )
+        if "secondary alcohol" in groups:
+            self.convert_secondary_alcohol_to_ketone(product)
 
-        explanations = "\n".join(
-            result.explanation for result in successful
-        )
+            return ReactionResult(
+                molecule,
+                [product],
+                f"{molecule.condensed()} + [O] → "
+                f"{product.condensed()}",
+                "Secondary alcohol oxidised to ketone.",
+            )
 
-        products = []
+        if "aldehyde" in groups:
+            self.convert_aldehyde_to_acid(product)
 
-        for result in successful:
-            products.extend(result.products)
+            return ReactionResult(
+                molecule,
+                [product],
+                f"{molecule.condensed()} + [O] → "
+                f"{product.condensed()}",
+                "Aldehyde oxidised to carboxylic acid.",
+            )
+
+        raise ValueError("No oxidisable functional group found.")
+
+    def reduction(self, molecule):
+        product = molecule.clone()
+        groups = detect_functional_groups(product)
+
+        if "aldehyde" in groups:
+            self.convert_aldehyde_to_primary_alcohol(product)
+
+            return ReactionResult(
+                molecule,
+                [product],
+                f"{molecule.condensed()} + 2[H] → "
+                f"{product.condensed()}",
+                "Aldehyde reduced to primary alcohol.",
+            )
+
+        if "ketone" in groups:
+            self.convert_ketone_to_secondary_alcohol(product)
+
+            return ReactionResult(
+                molecule,
+                [product],
+                f"{molecule.condensed()} + 2[H] → "
+                f"{product.condensed()}",
+                "Ketone reduced to secondary alcohol.",
+            )
+
+        raise ValueError("No reducible carbonyl group found.")
+
+    def convert_primary_alcohol_to_aldehyde(self, molecule):
+        for atom in molecule.atoms.values():
+            if atom.element != "C":
+                continue
+
+            neighbors = molecule.neighbors(atom.id)
+
+            oxygen = None
+
+            for n, order in neighbors:
+                if molecule.atoms[n].element == "O" and order == 1:
+                    oxygen = molecule.atoms[n]
+                    break
+
+            if oxygen and oxygen.hydrogens == 1:
+                oxygen.hydrogens = 0
+                atom.hydrogens += 1
+
+                carbon_neighbors = [
+                    n for n, _ in neighbors
+                    if molecule.atoms[n].element == "C"
+                ]
+
+                if len(carbon_neighbors) == 1:
+                    molecule.remove_bond(atom.id, oxygen.id)
+                    molecule.add_bond(atom.id, oxygen.id, 2)
+                    return
+
+    def convert_secondary_alcohol_to_ketone(self, molecule):
+        for atom in molecule.atoms.values():
+            if atom.element != "C":
+                continue
+
+            carbon_neighbors = [
+                n for n, _ in molecule.neighbors(atom.id)
+                if molecule.atoms[n].element == "C"
+            ]
+
+            oxygen = None
+
+            for n, order in molecule.neighbors(atom.id):
+                if molecule.atoms[n].element == "O" and order == 1:
+                    oxygen = molecule.atoms[n]
+                    break
+
+            if oxygen and oxygen.hydrogens == 1:
+                if len(carbon_neighbors) == 2:
+                    oxygen.hydrogens = 0
+                    molecule.remove_bond(atom.id, oxygen.id)
+                    molecule.add_bond(atom.id, oxygen.id, 2)
+                    atom.hydrogens = 0
+                    return
+
+    def convert_aldehyde_to_acid(self, molecule):
+        for atom in molecule.atoms.values():
+            if atom.element != "C" or atom.hydrogens < 1:
+                continue
+
+            oxygen = None
+
+            for n, order in molecule.neighbors(atom.id):
+                if molecule.atoms[n].element == "O" and order == 2:
+                    oxygen = molecule.atoms[n]
+                    break
+
+            if oxygen:
+                atom.hydrogens -= 1
+                hydroxyl = molecule.add_atom("O", 1)
+                molecule.add_bond(atom.id, hydroxyl, 1)
+                return
+
+    def convert_aldehyde_to_primary_alcohol(self, molecule):
+        for atom in molecule.atoms.values():
+            if atom.element != "C":
+                continue
+
+            oxygen = None
+
+            for n, order in molecule.neighbors(atom.id):
+                if molecule.atoms[n].element == "O" and order == 2:
+                    oxygen = molecule.atoms[n]
+                    break
+
+            if oxygen and atom.hydrogens >= 1:
+                molecule.remove_bond(atom.id, oxygen.id)
+                molecule.add_bond(atom.id, oxygen.id, 1)
+                oxygen.hydrogens = 1
+                atom.hydrogens += 1
+                return
+
+    def convert_ketone_to_secondary_alcohol(self, molecule):
+        for atom in molecule.atoms.values():
+            if atom.element != "C":
+                continue
+
+            oxygen = None
+
+            for n, order in molecule.neighbors(atom.id):
+                if molecule.atoms[n].element == "O" and order == 2:
+                    oxygen = molecule.atoms[n]
+                    break
+
+            if oxygen:
+                molecule.remove_bond(atom.id, oxygen.id)
+                molecule.add_bond(atom.id, oxygen.id, 1)
+                oxygen.hydrogens = 1
+                atom.hydrogens += 1
+                return
+
+    def aqueous_substitution(self, molecule):
+        product = molecule.clone()
+
+        for atom in list(product.atoms.values()):
+            if atom.element not in {"F", "Cl", "Br", "I"}:
+                continue
+
+            attached_carbon = None
+
+            for n, order in product.neighbors(atom.id):
+                if product.atoms[n].element == "C":
+                    attached_carbon = n
+                    break
+
+            if attached_carbon is not None:
+                product.atoms[atom.id].element = "O"
+                product.atoms[atom.id].hydrogens = 1
+
+                return ReactionResult(
+                    molecule,
+                    [product, "KBr / NaBr"],
+                    f"{molecule.condensed()} + KOH(aq) → "
+                    f"{product.condensed()}",
+                    "Aqueous hydroxide substitutes the halogen.",
+                )
+
+        raise ValueError("No C–halogen bond found.")
+
+    def elimination(self, molecule):
+        product = molecule.clone()
+
+        for atom in product.atoms.values():
+            if atom.element not in {"F", "Cl", "Br", "I"}:
+                continue
+
+            carbon = None
+
+            for n, order in product.neighbors(atom.id):
+                if product.atoms[n].element == "C":
+                    carbon = n
+                    break
+
+            if carbon is None:
+                continue
+
+            beta_carbon = None
+
+            for n, order in product.neighbors(carbon):
+                if n == atom.id:
+                    continue
+
+                if product.atoms[n].element == "C":
+                    beta_carbon = n
+                    break
+
+            if beta_carbon is not None:
+                product.remove_bond(carbon, beta_carbon)
+                product.add_bond(carbon, beta_carbon, 2)
+                del product.atoms[atom.id]
+                product.bonds = [
+                    bond for bond in product.bonds
+                    if atom.id not in {bond.a, bond.b}
+                ]
+
+                return ReactionResult(
+                    molecule,
+                    [product, "KCl / KBr / KI"],
+                    f"{molecule.condensed()} + KOH(alc), Δ → "
+                    f"{product.condensed()}",
+                    "Alcoholic hydroxide causes β-elimination.",
+                )
+
+        raise ValueError("No suitable haloalkane for elimination.")
+
+    def bromination(self, molecule):
+        product = molecule.clone()
+
+        for bond in product.bonds:
+            if bond.order == 2:
+                a = product.atoms[bond.a]
+                b = product.atoms[bond.b]
+
+                if a.element == "C" and b.element == "C":
+                    bond.order = 1
+
+                    br1 = product.add_atom("Br")
+                    br2 = product.add_atom("Br")
+
+                    product.add_bond(a.id, br1, 1)
+                    product.add_bond(b.id, br2, 1)
+
+                    return ReactionResult(
+                        molecule,
+                        [product],
+                        f"{molecule.condensed()} + Br₂ → "
+                        f"{product.condensed()}",
+                        "Bromine adds across the C=C bond.",
+                    )
+
+        raise ValueError("No C=C bond found.")
+
+    def hydrogenation(self, molecule):
+        product = molecule.clone()
+
+        for bond in product.bonds:
+            if bond.order in {2, 3}:
+                a = product.atoms[bond.a]
+                b = product.atoms[bond.b]
+
+                if a.element == "C" and b.element == "C":
+                    if bond.order == 2:
+                        bond.order = 1
+                        a.hydrogens += 1
+                        b.hydrogens += 1
+                    else:
+                        bond.order = 2
+                        a.hydrogens += 1
+                        b.hydrogens += 1
+
+                    return ReactionResult(
+                        molecule,
+                        [product],
+                        f"{molecule.condensed()} + H₂ → "
+                        f"{product.condensed()}",
+                        "Catalytic hydrogenation reduces the carbon-carbon multiple bond.",
+                    )
+
+        raise ValueError("No C=C or C≡C bond found.")
+
+    def sodium_reaction(self, molecule):
+        groups = detect_functional_groups(molecule)
+
+        if not any(
+            group in groups
+            for group in {
+                "primary alcohol",
+                "secondary alcohol",
+                "tertiary alcohol",
+                "alcohol",
+            }
+        ):
+            raise ValueError("Sodium reaction requires an alcohol.")
 
         return ReactionResult(
-            success=True,
-            reaction=reaction_text,
-            explanation=explanations,
-            products=products
+            molecule,
+            [molecule.clone(), "H₂ gas", "sodium alkoxide"],
+            f"{molecule.condensed()} + Na → "
+            f"alkoxide + ½H₂",
+            "Alcohol reacts with sodium, releasing hydrogen gas.",
         )
+
+    def bicarbonate_reaction(self, molecule):
+        groups = detect_functional_groups(molecule)
+
+        if "carboxylic acid" not in groups:
+            raise ValueError(
+                "NaHCO₃ reaction requires a carboxylic acid."
+            )
+
+        return ReactionResult(
+            molecule,
+            [molecule.clone(), "CO₂ gas", "H₂O", "sodium carboxylate"],
+            f"{molecule.condensed()} + NaHCO₃ → "
+            f"sodium carboxylate + CO₂ + H₂O",
+            "Carboxylic acid gives brisk effervescence with sodium bicarbonate.",
+        )
+
+    def hydrohalogenation(self, molecule, reagent):
+        product = molecule.clone()
+
+        for bond in product.bonds:
+            if bond.order == 2:
+                a = product.atoms[bond.a]
+                b = product.atoms[bond.b]
+
+                if a.element == "C" and b.element == "C":
+                    bond.order = 1
+
+                    halogen = {
+                        "hbr": "Br",
+                        "hcl": "Cl",
+                        "hi": "I",
+                    }[reagent]
+
+                    halogen_id = product.add_atom(halogen)
+                    product.add_bond(a.id, halogen_id, 1)
+
+                    a.hydrogens += 1
+                    b.hydrogens += 1
+
+                    return ReactionResult(
+                        molecule,
+                        [product],
+                        f"{molecule.condensed()} + {reagent.upper()} → "
+                        f"{product.condensed()}",
+                        "Hydrohalogenation of the alkene.",
+                    )
+
+        raise ValueError("No alkene found.")
+
+    def hydration(self, molecule):
+        product = molecule.clone()
+
+        for bond in product.bonds:
+            if bond.order == 2:
+                a = product.atoms[bond.a]
+                b = product.atoms[bond.b]
+
+                if a.element == "C" and b.element == "C":
+                    bond.order = 1
+
+                    oxygen = product.add_atom("O", 1)
+                    product.add_bond(a.id, oxygen, 1)
+
+                    a.hydrogens += 1
+                    b.hydrogens += 1
+
+                    return ReactionResult(
+                        molecule,
+                        [product],
+                        f"{molecule.condensed()} + H₂O → "
+                        f"{product.condensed()}",
+                        "Acid-catalysed hydration of the alkene.",
+                    )
+
+        raise ValueError("No alkene found.")
+
+    def dehydration(self, molecule):
+        product = molecule.clone()
+
+        for atom in list(product.atoms.values()):
+            if atom.element != "O" or atom.hydrogens != 1:
+                continue
+
+            carbon = None
+
+            for n, order in product.neighbors(atom.id):
+                if product.atoms[n].element == "C":
+                    carbon = n
+                    break
+
+            if carbon is not None:
+                beta_carbon = None
+
+                for n, order in product.neighbors(carbon):
+                    if n != atom.id and product.atoms[n].element == "C":
+                        beta_carbon = n
+                        break
+
+                if beta_carbon is not None:
+                    product.remove_bond(carbon, beta_carbon)
+                    product.add_bond(carbon, beta_carbon, 2)
+
+                    del product.atoms[atom.id]
+                    product.bonds = [
+                        bond for bond in product.bonds
+                        if atom.id not in {bond.a, bond.b}
+                    ]
+
+                    return ReactionResult(
+                        molecule,
+                        [product, "H₂O"],
+                        f"{molecule.condensed()} "
+                        f"→ {product.condensed()} + H₂O",
+                        "Alcohol dehydrated to alkene.",
+                    )
+
+        raise ValueError("No alcohol suitable for dehydration.")
