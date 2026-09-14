@@ -740,6 +740,7 @@ def parse_structure():
     except Exception as error:
         print("\nPARSER ERROR:", error)
 
+5
 
 def show_help():
 
@@ -1023,7 +1024,8 @@ def menu():
         print("2. Search reaction database")
         print("3. Browse reactions by category")
         print("4. List all reactions")
-        print("5. Exit")
+        print("5. Help")
+        print("6. Exit")
 
         choice = input("\nChoose option: ").strip()
 
@@ -1042,8 +1044,14 @@ def menu():
                 print(f"{i}. {reaction['name']}")
 
         elif choice == "5":
+            show_help()
+
+        elif choice == "6":
             print("Exiting.")
             break
+
+        elif choice.lower() == "h":
+            show_help()
 
         else:
             print("Invalid choice.")
