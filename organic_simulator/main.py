@@ -8,13 +8,9 @@ def display_molecule(molecule):
     print("MOLECULE ANALYSIS")
     print("=" * 65)
 
-    print(
-        f"Input:      {molecule.original_input}"
-    )
+    print(f"Input:      {molecule.original_input}")
 
-    print(
-        f"Formula:    {molecule.formula}"
-    )
+    print(f"Formula:    {molecule.formula}")
 
     print(
         f"Molar mass: "
@@ -52,9 +48,7 @@ def display_molecule(molecule):
             )
         )
 
-        print(
-            f"  {chain_text}"
-        )
+        print(f"  {chain_text}")
 
         print(
             f"  Length: "
@@ -63,9 +57,7 @@ def display_molecule(molecule):
         )
 
     else:
-        print(
-            "  No carbon parent chain found."
-        )
+        print("  No carbon parent chain found.")
 
     print()
     print("Functional groups:")
@@ -78,9 +70,7 @@ def display_molecule(molecule):
             )
 
     else:
-        print(
-            "  None detected."
-        )
+        print("  None detected.")
 
     print()
     print("Substituents:")
@@ -93,11 +83,8 @@ def display_molecule(molecule):
                 f"parent locant = "
                 f"{substituent.parent_locant}"
             )
-
     else:
-        print(
-            "  None detected."
-        )
+        print("  None detected.")
 
     print("=" * 65)
 
@@ -118,9 +105,7 @@ def run_reaction_loop(molecule):
         )
 
         if reagent is None:
-            print(
-                "Unknown reagent."
-            )
+            print("Unknown reagent.")
             continue
 
         print(
@@ -145,24 +130,13 @@ def run_reaction_loop(molecule):
         if not excess:
             while True:
                 try:
-                    reagent_moles = float(
-                        input(
-                            "Enter reagent amount in mol: "
-                        )
-                    )
-
+                    reagent_moles = float(input("Enter reagent amount in mol: "))
                     if reagent_moles < 0:
-                        print(
-                            "Amount cannot be negative."
-                        )
+                        print("Amount cannot be negative.")
                         continue
-
                     break
-
                 except ValueError:
-                    print(
-                        "Enter a valid numerical amount."
-                    )
+                    print("Enter a valid numerical amount.")
 
         try:
             result = reaction_engine.react(
@@ -171,79 +145,49 @@ def run_reaction_loop(molecule):
                 reagent_moles,
                 excess,
             )
-
             result.display()
 
             if result.product_molecule is not None:
-                use_product = input(
-                    "\nUse product as next molecule? (y/n): "
-                ).strip().lower()
+                use_product = input("\nUse product as next molecule? (y/n): ").strip().lower()
 
                 if use_product == "y":
                     molecule = result.product_molecule
-
                     analyzer = MoleculeAnalyzer()
                     analyzer.analyze(molecule)
 
-                    print(
-                        "\nUpdated molecule:"
-                    )
+                    print("\nUpdated molecule:")
 
                     display_molecule(molecule)
-
         except Exception as error:
             print()
-            print(
-                f"Reaction error: {error}"
-            )
+            print(f"Reaction error: {error}")
 
 
 def main():
-    print(
-        "Organic Chemistry Simulator — Version 2"
-    )
-
-    print(
-        "Open-chain aliphatic molecule analyzer"
-    )
-
-    print(
-        "Type 'exit' to quit."
-    )
+    print("Organic Chemistry Simulator — Version 2")
+    print("Open-chain aliphatic molecule analyzer")
+    print("Type 'exit' to quit.")
 
     while True:
         print()
-
-        text = input(
-            "Molecule > "
-        ).strip()
+        text = input("Molecule > ").strip()
 
         if text.lower() == "exit":
-            print(
-                "Exiting."
-            )
+            print("Exiting.")
             break
 
         if not text:
             continue
 
         try:
-            parser = StructureParser(
-                text
-            )
+            parser = StructureParser(text)
 
             molecule = parser.parse()
-
             analyzer = MoleculeAnalyzer()
             analyzer.analyze(molecule)
 
-            display_molecule(
-                molecule
-            )
-
-            run_reaction_loop(
-                molecule
-            )
+            display_molecule(molecule)
+            run_reaction_loop(molecule)
 
         except Exception as error:
             print()
