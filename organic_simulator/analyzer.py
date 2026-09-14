@@ -1,485 +1,317 @@
+"""
+Structure parser and molecular analysis.
+"""
+
 import re
-
-from molecule import (
-    Molecule,
-    FunctionalGroup,
-    Substituent,
-    Atom,
-    Bond,
-)
+from collections import Counter
 
 
+ELEMENTS = {
+    "H", "He",
+    "Li", "Be", "B", "C", "N", "O", "F", "Ne",
+    "Na", "Mg", "Al", "Si", "P", "S", "Cl", "Ar",
+    "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe",
+    "Co", "Ni", "Cu", "Zn", "Ga", "Ge", "As", "Se",
+    "Br", "Kr", "Rb", "Sr", "Ag", "Cd", "In", "Sn",
+    "Sb", "Te", "I", "Xe", "Cs", "Ba", "Pt", "Au",
+    "Hg", "Pb", "Bi"
+}
+
+
+ATOMIC_MASSES = {
+    "H": 1.008,
+    "B": 10.81,
+    "C": 12.011,
+    "N": 14.007,
+    "O": 15.999,
+    "F": 18.998,
+    "Na": 22.990,
+    "Mg": 24.305,
+    "Al": 26.982,
+    "Si": 28.085,
+    "P": 30.974,
+    "S": 32.06,
+    "Cl": 35.45,
+    "K": 39.098,
+    "Ca": 40.078,
+    "Cr": 51.996,
+    "Mn": 54.938,
+    "Fe": 55.845,
+    "Co": 58.933,
+    "Ni": 58.693,
+    "Cu": 63.546,
+    "Zn": 65.38,
+    "Br": 79.904,
+    "Ag": 107.868,
+    "Sn": 118.710,
+    "I": 126.904,
+    "Pt": 195.084,
+    "Au": 196.967,
+    "Hg": 200.592,
+    "Pb": 207.2,
+}
+
+
+# Longest tokens must appear first.
 TOKEN_PATTERN = re.compile(
-    r"CH\d*|"
-    r"NH\d*|"
-    r"COOH|"
-    r"CHO|"
-    r"CO|"
-    r"OH|"
-    r"Cl|"
-    r"Br|"
-    r"[A-Z]|"
+    r"Cl|Br|Na|Mg|Al|Si|Ca|Cr|Mn|Fe|Co|Ni|Cu|Zn|"
+    r"Ag|Sn|Pt|Au|Hg|Pb|"
+    r"CH3|CH2|CH|NH2|NH|COOH|CHO|CO|OH|"
+    r"[A-Z][a-z]?|"
+    r"\d+|"
     r"\(|\)|=|#|-"
 )
 
 
-def tokenize_structure(text):
-    text = text.replace(" ", "")
-
-    tokens = TOKEN_PATTERN.findall(text)
-    reconstructed = "".join(tokens)
-
-    if reconstructed != text:
-        raise ValueError(
-            f"Unsupported notation: {text}"
-        )
-
-    return tokens
-
-
 class StructureParser:
-    def __init__(self, text):
-        self.original_input = text
-        self.tokens = tokenize_structure(text)
+
+    def __init__(self, notation):
+        self.notation = notation.replace(" ", "")
+        self.tokens = TOKEN_PATTERN.findall(self.notation)
         self.position = 0
 
-        self.atoms = []
-        self.bonds = []
-
-        self.previous_atom = None
-        self.pending_bond_order = 1
-
-    def new_atom(self, element, hydrogens=0):
-        atom_id = len(self.atoms) + 1
-
-        self.atoms.append(
-            Atom(
-                atom_id,
-                element,
-                hydrogens,
-            )
-        )
-
-        return atom_id
-
-    def add_bond(self, atom1, atom2, order=1):
-        self.bonds.append(
-            Bond(
-                atom1,
-                atom2,
-                order,
-            )
-        )
-
-    def attach_atom(self, element, hydrogens=0):
-        atom_id = self.new_atom(
-            element,
-            hydrogens,
-        )
-
-        if self.previous_atom is not None:
-            self.add_bond(
-                self.previous_atom,
-                atom_id,
-                self.pending_bond_order,
-            )
-
-        self.previous_atom = atom_id
-        self.pending_bond_order = 1
-
-        return atom_id
-
-    @staticmethod
-    def hydrogen_count(token):
-        match = re.search(r"H(\d*)", token)
-
-        if not match:
-            return 0
-
-        number = match.group(1)
-
-        if number == "":
-            return 1
-
-        return int(number)
-
-    def parse_carbon(self, token):
-        hydrogens = 0
-
-        if token != "C":
-            hydrogens = self.hydrogen_count(token)
-
-        self.attach_atom(
-            "C",
-            hydrogens,
-        )
-
-    def parse_special_group(self, token):
-        if token == "OH":
-            self.attach_atom(
-                "O",
-                1,
-            )
-            return
-
-        if token == "COOH":
-            carbon_id = self.attach_atom(
-                "C",
-                0,
-            )
-
-            carbonyl_oxygen = self.new_atom(
-                "O",
-                0,
-            )
-
-            hydroxyl_oxygen = self.new_atom(
-                "O",
-                1,
-            )
-
-            self.add_bond(
-                carbon_id,
-                carbonyl_oxygen,
-                2,
-            )
-
-            self.add_bond(
-                carbon_id,
-                hydroxyl_oxygen,
-                1,
-            )
-
-            return
-
-        if token == "CHO":
-            carbon_id = self.attach_atom(
-                "C",
-                1,
-            )
-
-            oxygen_id = self.new_atom(
-                "O",
-                0,
-            )
-
-            self.add_bond(
-                carbon_id,
-                oxygen_id,
-                2,
-            )
-
-            return
-
-        if token == "CO":
-            carbon_id = self.attach_atom(
-                "C",
-                0,
-            )
-
-            oxygen_id = self.new_atom(
-                "O",
-                0,
-            )
-
-            self.add_bond(
-                carbon_id,
-                oxygen_id,
-                2,
-            )
-
-            return
-
-        if token.startswith("NH"):
-            hydrogens = self.hydrogen_count(token)
-
-            self.attach_atom(
-                "N",
-                hydrogens,
-            )
-
-            return
-
-        if token in {"Cl", "Br", "F", "I"}:
-            self.attach_atom(
-                token,
-                0,
-            )
-            return
-
-        raise ValueError(
-            f"Unsupported token: {token}"
-        )
-
     def parse(self):
-        branch_stack = []
+        if not self.tokens:
+            raise ValueError("Empty molecular notation")
+
+        atoms = []
+        bonds = []
+
+        current_atom = None
+        pending_bond = 1
 
         while self.position < len(self.tokens):
             token = self.tokens[self.position]
 
-            if token == "-":
-                self.pending_bond_order = 1
+            if token in {"=", "#", "-"}:
+                pending_bond = {
+                    "-": 1,
+                    "=": 2,
+                    "#": 3
+                }[token]
 
-            elif token == "=":
-                self.pending_bond_order = 2
+                self.position += 1
+                continue
 
-            elif token == "#":
-                self.pending_bond_order = 3
+            if token == "(":
+                self.position += 1
+                continue
 
-            elif token == "(":
-                if self.previous_atom is None:
-                    raise ValueError(
-                        "A branch cannot begin the molecule."
-                    )
+            if token == ")":
+                self.position += 1
+                continue
 
-                branch_stack.append(
-                    self.previous_atom
-                )
+            if token.isdigit():
+                self.position += 1
+                continue
 
-            elif token == ")":
-                if not branch_stack:
-                    raise ValueError(
-                        "Unmatched closing parenthesis."
-                    )
+            element, hydrogens = self.expand_token(token)
 
-                self.previous_atom = branch_stack.pop()
+            atom_id = len(atoms)
+            atoms.append({
+                "id": atom_id,
+                "element": element,
+                "hydrogens": hydrogens
+            })
 
-            elif token.startswith("CH") or token == "C":
-                self.parse_carbon(token)
+            if current_atom is not None:
+                bonds.append({
+                    "atom1": current_atom,
+                    "atom2": atom_id,
+                    "order": pending_bond
+                })
 
-            else:
-                self.parse_special_group(token)
-
+            current_atom = atom_id
+            pending_bond = 1
             self.position += 1
 
-        if branch_stack:
-            raise ValueError(
-                "Unmatched opening parenthesis."
-            )
+        return atoms, bonds
 
-        molecule = Molecule(
-            self.original_input
-        )
-
-        molecule.atoms = self.atoms
-        molecule.bonds = self.bonds
-
-        return molecule
-
-
-class MoleculeAnalyzer:
-    def analyze(self, molecule):
-        self.find_parent_chain(molecule)
-        self.find_functional_groups(molecule)
-        self.find_substituents(molecule)
-
-    def carbon_atoms(self, molecule):
-        return [
-            atom
-            for atom in molecule.atoms
-            if atom.element == "C"
-        ]
-
-    def carbon_neighbours(self, molecule, carbon_id):
-        result = []
-
-        for neighbour_id in molecule.neighbours(carbon_id):
-            neighbour = molecule.atom_by_id(neighbour_id)
-
-            if neighbour.element == "C":
-                result.append(neighbour_id)
-
-        return result
-
-    def find_parent_chain(self, molecule):
-        carbon_ids = {
-            atom.id
-            for atom in self.carbon_atoms(molecule)
+    def expand_token(self, token):
+        special = {
+            "CH3": ("C", 3),
+            "CH2": ("C", 2),
+            "CH": ("C", 1),
+            "C": ("C", 0),
+            "NH2": ("N", 2),
+            "NH": ("N", 1),
+            "N": ("N", 0),
+            "OH": ("O", 1),
+            "O": ("O", 0),
+            "COOH": ("C", 0),
+            "CHO": ("C", 1),
+            "CO": ("C", 0),
         }
 
-        best_path = []
+        if token in special:
+            return special[token]
 
-        def dfs(current_id, visited, path):
-            nonlocal best_path
+        if token in ELEMENTS:
+            return token, 0
 
-            if len(path) > len(best_path):
-                best_path = path.copy()
+        raise ValueError(f"Unsupported notation token: {token}")
 
-            for neighbour_id in self.carbon_neighbours(
-                molecule,
-                current_id,
-            ):
-                if neighbour_id not in visited:
-                    visited.add(neighbour_id)
-                    path.append(neighbour_id)
 
-                    dfs(
-                        neighbour_id,
-                        visited,
-                        path,
-                    )
+class StructureAnalyzer:
 
-                    path.pop()
-                    visited.remove(neighbour_id)
+    def __init__(self, atoms, bonds):
+        self.atoms = atoms
+        self.bonds = bonds
 
-        for carbon_id in carbon_ids:
-            dfs(
-                carbon_id,
-                {carbon_id},
-                [carbon_id],
+    def formula_counts(self):
+        counts = Counter()
+
+        for atom in self.atoms:
+            counts[atom["element"]] += 1
+            counts["H"] += atom.get("hydrogens", 0)
+
+        return counts
+
+    def formula(self):
+        counts = self.formula_counts()
+
+        order = []
+
+        if "C" in counts:
+            order.append("C")
+
+        if "H" in counts:
+            order.append("H")
+
+        order.extend(
+            element for element in sorted(counts)
+            if element not in {"C", "H"}
+        )
+
+        result = []
+
+        for element in order:
+            amount = counts[element]
+
+            if amount == 1:
+                result.append(element)
+            elif amount > 1:
+                result.append(f"{element}{amount}")
+
+        return "".join(result)
+
+    def molar_mass(self):
+        counts = self.formula_counts()
+        mass = 0.0
+
+        for element, amount in counts.items():
+            mass += ATOMIC_MASSES.get(element, 0.0) * amount
+
+        return mass
+
+    def dbe(self):
+        """
+        Approximate degree of unsaturation:
+
+        DBE = (2C + 2 + N - H - X) / 2
+
+        X = F + Cl + Br + I
+
+        This is most reliable for ordinary neutral organic molecules.
+        """
+
+        counts = self.formula_counts()
+
+        carbon = counts.get("C", 0)
+        nitrogen = counts.get("N", 0)
+        hydrogen = counts.get("H", 0)
+
+        halogens = sum(
+            counts.get(element, 0)
+            for element in ["F", "Cl", "Br", "I"]
+        )
+
+        return (2 * carbon + 2 + nitrogen - hydrogen - halogens) / 2
+
+    def bond_summary(self):
+        single = 0
+        double = 0
+        triple = 0
+
+        for bond in self.bonds:
+            if bond["order"] == 1:
+                single += 1
+            elif bond["order"] == 2:
+                double += 1
+            elif bond["order"] == 3:
+                triple += 1
+
+        return {
+            "single": single,
+            "double": double,
+            "triple": triple
+        }
+
+    def functional_groups(self):
+        groups = []
+
+        elements = [atom["element"] for atom in self.atoms]
+
+        if "OH" in self._raw_tokens():
+            groups.append("Alcohol")
+
+        if "COOH" in self._raw_tokens():
+            groups.append("Carboxylic acid")
+
+        if "CHO" in self._raw_tokens():
+            groups.append("Aldehyde")
+
+        if "NH2" in self._raw_tokens():
+            groups.append("Primary amine")
+
+        if any(element in elements for element in ["Cl", "Br", "I", "F"]):
+            groups.append("Halo compound")
+
+        if any(bond["order"] == 3 for bond in self.bonds):
+            groups.append("Alkyne")
+
+        if any(bond["order"] == 2 for bond in self.bonds):
+            groups.append("Alkene or carbonyl")
+
+        if not groups:
+            groups.append("No recognised functional group")
+
+        return sorted(set(groups))
+
+    def _raw_tokens(self):
+        return [
+            atom.get("token", atom["element"])
+            for atom in self.atoms
+        ]
+
+    def report(self):
+        print("\nSTRUCTURE ANALYSIS")
+        print("=" * 60)
+
+        print(f"Formula       : {self.formula()}")
+        print(f"Molar mass    : {self.molar_mass():.3f} g mol^-1")
+        print(f"DBE           : {self.dbe():.2f}")
+
+        print("\nFunctional groups:")
+        for group in self.functional_groups():
+            print(f"  - {group}")
+
+        print("\nBond summary:")
+        for name, amount in self.bond_summary().items():
+            print(f"  {name.capitalize()} bonds: {amount}")
+
+        print("\nAtoms:")
+        for atom in self.atoms:
+            print(
+                f"  Atom {atom['id']}: "
+                f"{atom['element']} "
+                f"(implicit H = {atom.get('hydrogens', 0)})"
             )
 
-        molecule.parent_chain = best_path
-
-    def find_functional_groups(self, molecule):
-        molecule.functional_groups = []
-
-        for atom in molecule.atoms:
-            if atom.element == "O":
-                neighbours = molecule.neighbours(atom.id)
-
-                if atom.hydrogens == 1:
-                    carbon_neighbours = []
-
-                    for neighbour_id in neighbours:
-                        neighbour = molecule.atom_by_id(neighbour_id)
-
-                        if neighbour.element == "C":
-                            carbon_neighbours.append(neighbour_id)
-
-                    if carbon_neighbours:
-                        carbon_id = carbon_neighbours[0]
-
-                        carbon_count = len(
-                            self.carbon_neighbours(
-                                molecule,
-                                carbon_id,
-                            )
-                        )
-
-                        if carbon_count == 1:
-                            name = "primary alcohol"
-
-                        elif carbon_count == 2:
-                            name = "secondary alcohol"
-
-                        elif carbon_count == 3:
-                            name = "tertiary alcohol"
-
-                        else:
-                            name = "alcohol"
-
-                        molecule.functional_groups.append(
-                            FunctionalGroup(
-                                name,
-                                [carbon_id, atom.id],
-                            )
-                        )
-
-                for neighbour_id in neighbours:
-                    bond = molecule.bond_between(
-                        atom.id,
-                        neighbour_id,
-                    )
-
-                    if bond is None or bond.order != 2:
-                        continue
-
-                    neighbour = molecule.atom_by_id(neighbour_id)
-
-                    if neighbour.element == "C":
-                        carbon_id = neighbour_id
-
-                        carbon_neighbours = molecule.neighbours(
-                            carbon_id
-                        )
-
-                        has_oh = False
-
-                        for other_id in carbon_neighbours:
-                            other = molecule.atom_by_id(other_id)
-
-                            if (
-                                other.element == "O"
-                                and other.id != atom.id
-                                and other.hydrogens == 1
-                            ):
-                                has_oh = True
-
-                        if has_oh:
-                            name = "carboxylic acid"
-
-                        else:
-                            carbon_carbon_neighbours = [
-                                other_id
-                                for other_id in carbon_neighbours
-                                if molecule.atom_by_id(
-                                    other_id
-                                ).element == "C"
-                            ]
-
-                            if len(carbon_carbon_neighbours) == 1:
-                                name = "aldehyde"
-
-                            else:
-                                name = "ketone"
-
-                        molecule.functional_groups.append(
-                            FunctionalGroup(
-                                name,
-                                [carbon_id, atom.id],
-                            )
-                        )
-
-            elif atom.element in {"Cl", "Br", "F", "I"}:
-                neighbours = molecule.neighbours(atom.id)
-
-                if neighbours:
-                    molecule.functional_groups.append(
-                        FunctionalGroup(
-                            "halo group",
-                            [neighbours[0], atom.id],
-                        )
-                    )
-
-    def find_substituents(self, molecule):
-        molecule.substituents = []
-
-        parent_atoms = set(molecule.parent_chain)
-
-        for atom in molecule.atoms:
-            if atom.element != "C":
-                continue
-
-            if atom.id in parent_atoms:
-                continue
-
-            carbon_neighbours = self.carbon_neighbours(
-                molecule,
-                atom.id,
-            )
-
-            parent_neighbours = [
-                neighbour_id
-                for neighbour_id in carbon_neighbours
-                if neighbour_id in parent_atoms
-            ]
-
-            if not parent_neighbours:
-                continue
-
-            parent_atom_id = parent_neighbours[0]
-
-            parent_locant = (
-                molecule.parent_chain.index(
-                    parent_atom_id
-                ) + 1
-            )
-
-            molecule.substituents.append(
-                Substituent(
-                    "alkyl substituent",
-                    [atom.id],
-                    parent_locant,
-                )
+        print("\nBonds:")
+        for bond in self.bonds:
+            print(
+                f"  {bond['atom1']} "
+                f"--{bond['order']}-- "
+                f"{bond['atom2']}"
             )

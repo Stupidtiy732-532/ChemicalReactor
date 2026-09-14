@@ -7,11 +7,36 @@ import re
 # ============================================================
 
 class Atom:
-    def __init__(self, atom_id, element, hydrogens=0):
-        self.id = atom_id
+
+    def __init__(
+        self,
+        atom_id,
+        element,
+        hydrogens=0,
+        formal_charge=0
+    ):
+        self.atom_id = atom_id
         self.element = element
         self.hydrogens = hydrogens
+        self.formal_charge = formal_charge
 
+    def __repr__(self):
+        charge = ""
+
+        if self.formal_charge > 0:
+            charge = f"+{self.formal_charge}"
+
+        elif self.formal_charge < 0:
+            charge = f"{self.formal_charge}"
+
+        return (
+            f"Atom("
+            f"id={self.atom_id}, "
+            f"element={self.element}, "
+            f"H={self.hydrogens}, "
+            f"charge={charge}"
+            f")"
+        )
 
 class Bond:
     def __init__(self, atom1, atom2, order=1):
