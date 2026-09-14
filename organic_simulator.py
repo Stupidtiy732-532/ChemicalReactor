@@ -741,6 +741,271 @@ def parse_structure():
         print("\nPARSER ERROR:", error)
 
 
+def show_help():
+
+    print("\n")
+    print("=" * 70)
+    print("NCERT + JEE ORGANIC CHEMISTRY SIMULATOR — HELP")
+    print("=" * 70)
+
+    print("""
+COMMANDS
+--------
+
+1  Parse and validate custom structure
+   Enter a chemical structure using the custom notation.
+
+2  Search reaction database
+   Search by reaction name, reactant, reagent, or category.
+
+3  Browse reactions by category
+   View reactions grouped by organic chemistry topic.
+
+4  List all reactions
+   Display every reaction currently in the database.
+
+5  Exit
+   Close the simulator.
+
+H  Help
+   Display this help menu.
+
+CUSTOM CHEMICAL NOTATION
+------------------------
+
+ATOMS
+-----
+
+C       Carbon
+H       Hydrogen
+N       Nitrogen
+O       Oxygen
+F       Fluorine
+Cl      Chlorine
+Br      Bromine
+I       Iodine
+S       Sulfur
+P       Phosphorus
+
+ISOTOPES
+--------
+
+[14C]       Carbon-14
+[2H]        Deuterium
+[3H]        Tritium
+
+Examples:
+
+[14C]H4
+[14C]D4
+[14C]D3H
+[14C]([14C]T3H)2([14C]D3H)H
+
+D and T may be used as hydrogen isotope symbols.
+
+BONDS
+-----
+
+-           Single bond
+=           Double bond
+#           Triple bond
+
+Examples:
+
+C-C
+C=C
+C#C
+
+Implicit single bonds:
+
+CC
+CH3CH3
+H4C
+
+ATOMS
+-----
+
+An atom can be written without explicitly specifying
+all of its hydrogens.
+
+Examples:
+
+C
+CH4
+CH3CH3
+CH3CH2OH
+
+STRICT NOTATION:
+
+Explicit atom valencies must be satisfied.
+Incomplete structures may be rejected.
+
+LONE PAIRS
+----------
+
+:C          Lone pair notation
+C:          Lone pair notation
+
+::C         Two lone-pair notation
+C::         Two lone-pair notation
+
+Examples:
+
+:O
+O:
+:N
+N:
+
+RADICALS
+--------
+
+.C          One unpaired electron
+C.          One unpaired electron
+
+..C         Two unpaired electrons
+C..         Two unpaired electrons
+
+Examples:
+
+CH3.
+.C
+C..
+
+CHARGES
+-------
+
+^+          Charge +1
+^-          Charge -1
+^2+         Charge +2
+^2-         Charge -2
+
+Examples:
+
+C^+
+C^-
+O^-
+N^+
+C^2+
+O^2-
+
+A charge belongs to the atom immediately before it.
+
+PARENTHESES
+-----------
+
+Parentheses represent branches or groups.
+
+Examples:
+
+CH3(CH3)CH3
+C(C)(C)C
+C(OH)C
+
+ISOTOPIC BRANCHES
+-----------------
+
+[14C]([14C]T3H)2([14C]D3H)H
+
+This represents a structure containing isotopically
+specified carbon and hydrogen atoms.
+
+RINGS
+-----
+
+@n is a ring marker.
+
+Planned notation:
+
+@1
+@2
+@3
+
+Ring closure and ring bonds are part of the extended
+notation system.
+
+PARTIAL BONDS
+-------------
+
+Planned notation:
+
+-_{3/2}
+
+Example:
+
+C-_{3/2}C
+
+The mathematical expression inside {} specifies
+the desired bond order.
+
+COORDINATE BONDS
+----------------
+
+Planned notation:
+
+A->B
+A<-B
+A=>B
+A<=B
+A<#B
+A#>B
+
+The direction identifies the donor and acceptor.
+
+RESONANCE
+---------
+
+Planned notation:
+
+{structure1 | structure2}
+
+Example:
+
+{CH3-C(=O)-O^- | CH3-C(-O^-)=O}
+
+Resonance contributors represent alternative
+Lewis structures of the same species.
+
+REACTION DATABASE
+-----------------
+
+Search examples:
+
+ethanol
+alkene
+oxidation
+substitution
+benzaldehyde
+amines
+diazotisation
+esterification
+
+Reaction information includes:
+
+- Reaction name
+- Category
+- Reactants
+- Reagents
+- Equation
+- Products
+- Reaction type
+- Conditions
+- Observation
+
+IMPORTANT
+---------
+
+This is a chemical notation and reaction simulator.
+
+It is NOT SMILES.
+
+The parser validates basic valency and structure.
+It does not yet perform complete quantum chemistry,
+automatic mechanism generation, or full resonance analysis.
+""")
+
+
+
+
 # ============================================================
 # MENU
 # ============================================================
