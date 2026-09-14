@@ -153,79 +153,110 @@ def reagent_database_mode(database):
 
 
 def reaction_mode(database):
+    from reactions import ReactionEngine
+
+    engine = ReactionEngine()
+
+    current_structure = None
+
     while True:
         header("REACTION MODE")
 
-        print("1. Enter molecule and reagent")
-        print("2. View available reagents")
-        print("3. Back")
+        print("1. Enter new molecule")
+        print("2. Enter reagent manually")
+        print("3. Choose reagent from database")
+        print("4. Show current molecule")
+        print("5. Run reaction")
+        print("6. Back")
 
         choice = input("\nSelect: ").strip()
 
-        if choice == "3":
-            return
+        if choice == "1":
+            structure = read_structure()
 
-        if choice == "2":
-            database.display_all()
+            if structure is not None:
+                current_structure = structure
+                print("\nMolecule loaded.")
+
             pause()
-            continue
 
-        if choice != "1":
-            continue
+        elif choice == "2":
+            reagent_name = input(
+                "\nEnter any reagent or chemical species: "
+            ).strip()
 
-        structure = read_structure()
+            if reagent_name:
+                engine.add_reagent(reagent_name)
+                print(f"\nAdded reagent: {reagent_name}")
 
-        if structure is None:
-            continue
+            pause()
 
-        atoms, bonds = structure
+        elif choice == "3":
+            database.display_all()
 
-        analyzer = StructureAnalyzer(atoms, bonds)
+            number = read_number(
+                "\nSelect reagent number: ",
+                1,
+                len(database.all())
+            )
 
-        print("\nStarting molecule:")
-        print(f"Formula: {analyzer.formula()}")
-        print(f"Molar mass: {analyzer.molar_mass():.3f} g mol^-1")
+            reagent = database.get_by_number(number)
 
-        database.display_all()
+            engine.add_reagent(reagent.formula)
 
-        reagent_number = read_number(
-            "\nSelect reagent number: ",
-            1,
-            len(database.all())
-        )
+            print(f"\nAdded: {reagent.name}")
 
-        reagent = database.get_by_number(reagent_number)
+            pause()
 
-        print("\nSELECTED REAGENT")
-        print("=" * 60)
-        print(f"Name     : {reagent.name}")
-        print(f"Formula  : {reagent.formula}")
-        print(f"Category : {reagent.category}")
-        print(f"Uses     : {reagent.uses}")
-        print(f"Conditions: {reagent.conditions}")
+        elif choice == "4":
+            if current_structure is None:
+                print("\nNo molecule loaded.")
+            else:
+                atoms, bonds = current_structure
+                analyzer = StructureAnalyzer(atoms, bonds)
+                analyzer.report()
 
-        print("\nREACTION ENGINE STATUS")
-        print("=" * 60)
+            pause()
 
-        # Current engine connection point.
-        # Existing ReactionEngine can be connected here.
-        #
-        # Example:
-        #
-        # engine = ReactionEngine()
-        # result = engine.react(molecule, reagent)
-        #
-        # At present this displays the selected reaction
-        # and leaves actual transformation to reactions.py.
+        elif choice == "5":
+            if current_structure is None:
+                print("\nEnter a molecule first.")
+                pause()
+                continue
 
-        print("\nReaction selected successfully.")
+            if not engine.reagents:
+                print("\nAdd at least one reagent first.")
+                pause()
+                continue
 
-        print(
-            "\nNote: The reaction engine must now map "
-            "this reagent category to a transformation."
-        )
+            atoms, bonds = current_structure
 
-        pause()
+            result = engine.react(
+                atoms,
+                bonds,
+                engine.reagents
+            )
+
+            print("\nREACTION RESULT")
+            print("=" * 60)
+            print(result)
+
+            use_product = input(
+                "\nUse product as next molecule? [y/n]: "
+            ).lower()
+
+            if use_product == "y" and result.product is not None:
+                current_structure = (
+                    result.product.atoms,
+                    result.product.bonds
+                )
+
+                print("\nProduct loaded as current molecule.")
+
+            pause()
+
+        elif choice == "6":
+            return
 
 
 def functional_group_database_mode():
