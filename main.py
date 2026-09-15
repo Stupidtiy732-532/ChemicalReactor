@@ -5,6 +5,7 @@ import json
 from parser import parse_structure
 from geometry import GeometryEngine
 from analyzer import MolecularAnalyzer
+from reaction_engine import ReactionEngine
 
 
 # ==========================================================
@@ -294,6 +295,47 @@ def save_xyz(molecule):
         )
 
 
+def reaction_mode():
+    clear_screen()
+    print_banner()
+    print_header("REACTION MODE")
+
+    structure = input(
+        "Reactant structure > "
+    ).strip()
+
+    if not structure:
+        print_error("No reactant entered.")
+        pause()
+        return
+
+    reagent = input(
+        "Reagent > "
+    ).strip()
+
+    conditions = input(
+        "Conditions, if any > "
+    ).strip()
+
+    try:
+        engine = ReactionEngine()
+
+        result = engine.react(
+            structure,
+            reagent,
+            conditions
+        )
+
+        result.display()
+
+    except Exception as error:
+        print_error(
+            f"Reaction failed:\n{error}"
+        )
+
+    pause()
+
+
 # ==========================================================
 # MOLECULE MENU
 # ==========================================================
@@ -392,7 +434,8 @@ def main_menu():
         print_banner()
 
         print("1. Create / analyze molecule")
-        print("2. Exit")
+        print("2. Reaction mode")
+        print("3. Exit")
         print()
 
         choice = input("Select option > ").strip()
@@ -405,6 +448,10 @@ def main_menu():
                 molecule_menu(molecule)
 
         elif choice == "2":
+
+            reaction_mode()
+
+        elif choice == "3":
 
             clear_screen()
             print_banner()
