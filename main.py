@@ -1,39 +1,32 @@
-from chemistry.parser import parse
-from chemistry.electron_validation import validate_molecule
-from chemistry.reactions import (
-    alkene_hydrogenation,
-    alkyne_partial_hydrogenation,
-)
+from chemistry.parser import ChemicalParser
+from chemistry.engine import ReactionEngine
 
 
-def show_audit(label, molecule):
-    valid, audits = validate_molecule(molecule)
+def test(notation: str, reaction_id: str):
 
-    print(f"\n{label}: {molecule}")
-    print("Formula:", molecule.formula())
-    print("Valid:", valid)
+    reactant = ChemicalParser(notation).parse()
 
-    for audit in audits:
-        print(
-            f"  atom {audit.atom_index}: "
-            f"{audit.element}, "
-            f"bond-order={audit.bond_order_sum}, "
-            f"lone-pairs={audit.lone_pairs}, "
-            f"unpaired={audit.unpaired_electrons}, "
-            f"charge={audit.charge} "
-            f"-> {audit.message}"
-        )
+    print(f"Reactant: {notation}")
+    print(f"Before:  {reactant.formula()}")
 
+    engine = ReactionEngine()
+    result = engine.run(reaction_id, reactant)
 
-alkene = parse("C=C")
-show_audit("Alkene before", alkene)
+    product = result.products[0]
 
-alkene_product = alkene_hydrogenation(alkene).products[0]
-show_audit("Alkene after", alkene_product)
+    print(f"After:   {product.formula()}")
+
+    for observation in result.observations:
+        print(f"- {observation}")
+
+    print()
 
 
-alkyne = parse("C#C")
-show_audit("Alkyne before", alkyne)
+def main():
 
-alkyne_product = alkyne_partial_hydrogenation(alkyne).products[0]
-show_audit("Alkyne after", alkyne_product)
+    test("C=C", "alkene_hydrogenation")
+    test("C#C", "alkyne_partial_hydrogenation")
+
+
+if __name__ == "__main__":
+    main()
