@@ -1,19 +1,16 @@
 from chemistry.parser import ChemicalParser
-from chemistry.valency import complete_hydrogens
-from chemistry.validator import assert_valid_molecule
+from chemistry.functional_groups import find_functional_groups
 
 
 def main():
 
     examples = [
-        "C-C",
-        "C=C",
-        "C#C",
-        "C-O",
-        "C-N",
-        "CH3-CH2-OH",
-        "CH3-CH=CH2",
-        "CH3-C#CH",
+        "C-O-H",
+        "C-O-C",
+        "C=O",
+        "C(=O)-O",
+        "C(=O)-N",
+        "C-Cl",
     ]
 
     for notation in examples:
@@ -22,19 +19,21 @@ def main():
 
         try:
             molecule = ChemicalParser(notation).parse()
-
-            assert_valid_molecule(molecule)
-
-            complete_hydrogens(molecule)
+            groups = find_functional_groups(molecule)
 
             print(f"Formula: {molecule.formula()}")
-            print(f"Atoms:   {len(molecule.atoms)}")
-            print(f"Bonds:   {len(molecule.bonds)}")
-            print("Status:  valid")
+
+            if not groups:
+                print("Groups:  none")
+            else:
+                for group in groups:
+                    print(
+                        f"Group:   {group.name} — "
+                        f"{group.description}"
+                    )
 
         except Exception as error:
-
-            print(f"ERROR:   {error}")
+            print(f"ERROR: {error}")
 
         print()
 
