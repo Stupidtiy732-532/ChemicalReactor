@@ -2,28 +2,37 @@ from chemistry.parser import ChemicalParser
 from chemistry.engine import ReactionEngine
 
 
-def main():
+def test(notation: str, reaction_id: str):
+
+    reactant = ChemicalParser(notation).parse()
+
+    print(f"Reactant: {notation}")
+    print(f"Before:  {reactant.formula()}")
 
     engine = ReactionEngine()
+    result = engine.run(reaction_id, reactant)
 
-    print("Available reactions:\n")
-    engine.list_reactions()
+    product = result.products[0]
 
-    reactant = ChemicalParser("C=C").parse()
-
-    result = engine.run(
-        "alkene_hydrogenation",
-        reactant,
-    )
-
-    print("Reaction:", result.reaction_id)
-    print("Reactants:", len(result.reactants))
-    print("Products:", len(result.products))
-
-    print("\nObservations:")
+    print(f"After:   {product.formula()}")
 
     for observation in result.observations:
-        print("-", observation)
+        print(f"- {observation}")
+
+    print()
+
+
+def main():
+
+    test(
+        "C=C",
+        "alkene_hydrogenation",
+    )
+
+    test(
+        "C#C",
+        "alkyne_partial_hydrogenation",
+    )
 
 
 if __name__ == "__main__":

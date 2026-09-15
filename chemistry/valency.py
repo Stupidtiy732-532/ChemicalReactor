@@ -1,94 +1,85 @@
 from chemistry.atoms import Atom
-from chemistry.molecule import Molecule
+from chemistry.bonds import Bond, BondType
 
 
-DEFAULT_VALENCY = {
+VALENCY = {
     "H": 1,
     "D": 1,
     "T": 1,
-
     "C": 4,
     "N": 3,
     "O": 2,
-
     "F": 1,
     "Cl": 1,
     "Br": 1,
     "I": 1,
-
     "S": 2,
     "P": 3,
 }
 
 
-def bond_order_sum(molecule: Molecule, atom: Atom) -> float:
+def bond_order_sum(molecule, atom) -> float:
 
     total = 0.0
 
-    for bond in molecule.get_bonds():
+    for bond in molecule.bonds:
 
-        if bond.atom_a is atom:
-            total += bond.order
-
-        elif bond.atom_b is atom:
-            total += bond.order
+        if bond.atom_a is atom or bond.atom_b is atom:
+            total += float(bond.order)
 
     return total
 
 
-def complete_hydrogens(molecule: Molecule) -> Molecule:
+def complete_hydrogens(molecule):
 
-    atoms_to_add = []
+    additions = []
 
-    for atom in molecule.atoms:
+    for atom in list(molecule.atoms):
 
-        # Do not automatically complete hydrogen atoms.
-        if atom.element in {"H", "D", "T"}:
+        element = atom.element
+
+        if element not in VALENCY:
             continue
 
-        # Unknown elements are left untouched.
-        if atom.element not in DEFAULT_VALENCY:
+        if element in {"H", "D", "T"}:
             continue
 
-        # Charged/radical/lone-pair atoms need special rules later.
-        if atom.charge != 0:
+        # Only neutral atoms are handled by this basic rule.
+        if getattr(atom, "charge", 0) != 0:
             continue
 
-        if atom.lone_pairs != 0:
-            continue
+        used = bond_order_sum(molecule, atom)
+        required = VALENCY[element]
 
-        if atom.unpaired_electrons != 0:
-            continue
+        missing = required - used
 
-        valency = DEFAULT_VALENCY[atom.element]
-        used_valency = bond_order_sum(molecule, atom)
-
-        missing_hydrogens = int(valency - used_valency)
-
-        if missing_hydrogens < 0:
+        if missing < 0:
             raise ValueError(
-                f"Invalid valency for {atom}: "
-                f"used bond order = {used_valency}, "
-                f"allowed valency = {valency}"
+                f"Invalid valency for {element}: "
+                f"bond order {used} exceeds {required}"
             )
 
-        for _ in range(missing_hydrogens):
-            atoms_to_add.append(atom)
+        if not missing.is_integer():
+            raise ValueError(
+                f"Non-integer hydrogen count for {element}: {missing}"
+            )
 
-    for parent_atom in atoms_to_add:
+        for _ in range(int(missing)):
+            additions.append(atom)
+
+    for parent in additions:
 
         hydrogen = Atom(element="H")
+
         molecule.add_atom(hydrogen)
 
-        from chemistry.bonds import Bond, BondType
-
-        bond = Bond(
-            atom_a=parent_atom,
-            atom_b=hydrogen,
-            order=1.0,
-            bond_type=BondType.SINGLE,
+        molecule.add_bond(
+            Bond(
+                atom_a=parent,
+                atom_b=hydrogen,
+                order=1.0,
+                bond_type=BondType.SINGLE,
+            )
         )
-
-        molecule.add_bond(bond)
 
     return molecule
