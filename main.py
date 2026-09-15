@@ -24,15 +24,8 @@ def test(notation: str, reaction_id: str):
 
 def main():
 
-    test(
-        "C=C",
-        "alkene_hydrogenation",
-    )
-
-    test(
-        "C#C",
-        "alkyne_partial_hydrogenation",
-    )
+    test("C=C", "alkene_hydrogenation")
+    test("C#C", "alkyne_partial_hydrogenation")
 
 
 if __name__ == "__main__":
