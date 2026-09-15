@@ -1,41 +1,42 @@
 from chemistry.parser import ChemicalParser
 from chemistry.valency import complete_hydrogens
+from chemistry.validator import assert_valid_molecule
 
 
 def main():
 
     examples = [
-        "CH3-CH(CH3)-CH3",
-        "CH3-C(CH3)2-CH3",
-        "CH3-CH2-CH2-CH3",
+        "C-C",
+        "C=C",
+        "C#C",
+        "C-O",
+        "C-N",
+        "CH3-CH2-OH",
         "CH3-CH=CH2",
         "CH3-C#CH",
-        "CH3-CH2-OH",
     ]
 
-    for formula in examples:
+    for notation in examples:
+
+        print(f"Input: {notation}")
 
         try:
-            molecule = ChemicalParser(formula).parse()
+            molecule = ChemicalParser(notation).parse()
 
-            explicit_formula = molecule.formula()
+            assert_valid_molecule(molecule)
 
             complete_hydrogens(molecule)
 
-            completed_formula = molecule.formula()
-
-            print(f"Input:              {formula}")
-            print(f"Before completion:  {explicit_formula}")
-            print(f"After completion:   {completed_formula}")
-            print(f"Atoms:              {len(molecule.atoms)}")
-            print(f"Bonds:              {len(molecule.bonds)}")
-            print()
+            print(f"Formula: {molecule.formula()}")
+            print(f"Atoms:   {len(molecule.atoms)}")
+            print(f"Bonds:   {len(molecule.bonds)}")
+            print("Status:  valid")
 
         except Exception as error:
 
-            print(f"Input: {formula}")
-            print(f"ERROR: {error}")
-            print()
+            print(f"ERROR:   {error}")
+
+        print()
 
 
 if __name__ == "__main__":
