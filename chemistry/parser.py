@@ -5,6 +5,12 @@ from chemistry.molecule import Molecule
 
 class ChemicalParser:
 
+    ELEMENTS = {
+        "H", "D", "T",
+        "B", "C", "N", "O", "F", "P", "S",
+        "Cl", "Br", "I",
+    }
+
     def __init__(self, formula: str):
         self.formula = formula
         self.position = 0
@@ -23,6 +29,10 @@ class ChemicalParser:
 
             char = self.formula[self.position]
 
+            if char.isspace():
+                self.position += 1
+                continue
+
             # Bond symbols
             if char == "-":
                 self.pending_bond = BondType.SINGLE
@@ -39,73 +49,137 @@ class ChemicalParser:
                 self.position += 1
                 continue
 
-            # Branch start
+            # Branch opening
             if char == "(":
+                if self.current_atom is None:
+                    raise ValueError("Branch cannot start without an atom")
+
                 self.branch_stack.append(self.current_atom)
                 self.position += 1
                 continue
 
-            # Branch end
+            # Branch closing
             if char == ")":
+                if not self.branch_stack:
+                    raise ValueError("Unmatched ')'")
+
                 self.current_atom = self.branch_stack.pop()
                 self.position += 1
-
-                # Handle repetition after branch: (...)2
-                repeat_count = self.read_number()
-
-                if repeat_count is not None:
-                    self.repeat_last_branch(repeat_count)
-
                 continue
 
-            # Isotope notation: [14C]
+            # Isotope atom, e.g. [14C]
             if char == "[":
-                atom = self.parse_isotope_atom()
+                atom = self.parse_isotope()
                 self.connect_atom(atom)
                 continue
 
-            # Element symbol
+            # Element atom
             if char.isupper():
-
-                element = char
-                self.position += 1
-
-                # Two-letter element symbols
-                if self.position < self.length:
-                    next_char = self.formula[self.position]
-
-                    if next_char.islower():
-                        element += next_char
-                        self.position += 1
-
-                atom = Atom(element=element)
-
-                # Explicit hydrogen/count notation: CH3
-                count = self.read_number()
-
-                if count is None:
-                    count = 1
-
-                self.connect_atom(atom)
-
-                # Add repeated atoms, e.g. H3
-                if element not in {"H", "D", "T"} and count > 1:
-                    for _ in range(count - 1):
-                        repeated_atom = Atom(element=element)
-                        self.connect_atom(repeated_atom)
-
-                continue
-
-            # Ignore whitespace
-            if char.isspace():
-                self.position += 1
+                self.parse_element()
                 continue
 
             raise ValueError(
                 f"Unexpected character '{char}' at position {self.position}"
             )
 
+        if self.branch_stack:
+            raise ValueError("Unclosed branch '('")
+
         return self.molecule
+
+    def parse_element(self):
+
+        element = self.formula[self.position]
+        self.position += 1
+
+        # Two-letter elements: Cl and Br
+        if self.position < self.length:
+
+            possible_second = self.formula[self.position]
+
+            candidate = element + possible_second
+
+            if candidate in self.ELEMENTS:
+                element = candidate
+                self.position += 1
+
+        # Number after element means attached hydrogen/deuterium count:
+        #
+        # C       -> carbon atom
+        # CH3     -> carbon atom + 3 hydrogen atoms
+        # CH2     -> carbon atom + 2 hydrogen atoms
+        # OH      -> oxygen atom + hydrogen atom
+        #
+        # A number directly after an element is not atom repetition.
+
+        self.connect_atom(Atom(element=element))
+
+        if element in {"H", "D", "T"}:
+            return
+
+        if self.position >= self.length:
+            return
+
+        next_char = self.formula[self.position]
+
+        # Explicit hydrogen count: CH3, CH2, CD3, etc.
+        if next_char in {"H", "D", "T"}:
+
+            isotope_hydrogen = next_char
+            self.position += 1
+
+            count = self.read_number()
+
+            if count is None:
+                count = 1
+
+            for _ in range(count):
+                hydrogen = Atom(element=isotope_hydrogen)
+                self.connect_atom(hydrogen)
+
+    def parse_isotope(self) -> Atom:
+
+        # Skip '['
+        self.position += 1
+
+        isotope_start = self.position
+
+        while (
+            self.position < self.length
+            and self.formula[self.position].isdigit()
+        ):
+            self.position += 1
+
+        isotope_text = self.formula[isotope_start:self.position]
+
+        if not isotope_text:
+            raise ValueError("Missing isotope number")
+
+        isotope = int(isotope_text)
+
+        if self.position >= self.length:
+            raise ValueError("Incomplete isotope notation")
+
+        element = self.formula[self.position]
+        self.position += 1
+
+        if self.position < self.length:
+
+            candidate = element + self.formula[self.position]
+
+            if candidate in self.ELEMENTS:
+                element = candidate
+                self.position += 1
+
+        if self.position >= self.length or self.formula[self.position] != "]":
+            raise ValueError("Missing closing ']'")
+
+        self.position += 1
+
+        return Atom(
+            element=element,
+            isotope=isotope,
+        )
 
     def connect_atom(self, atom: Atom):
 
@@ -152,75 +226,3 @@ class ChemicalParser:
             return None
 
         return int(self.formula[start:self.position])
-
-    def parse_isotope_atom(self):
-
-        self.position += 1
-
-        isotope_start = self.position
-
-        while (
-            self.position < self.length
-            and self.formula[self.position].isdigit()
-        ):
-            self.position += 1
-
-        isotope_text = self.formula[isotope_start:self.position]
-
-        if not isotope_text:
-            raise ValueError("Isotope number missing")
-
-        isotope = int(isotope_text)
-
-        if self.position >= self.length:
-            raise ValueError("Incomplete isotope atom")
-
-        element = self.formula[self.position]
-        self.position += 1
-
-        if self.position < self.length:
-            next_char = self.formula[self.position]
-
-            if next_char.islower():
-                element += next_char
-                self.position += 1
-
-        if self.position >= self.length or self.formula[self.position] != "]":
-            raise ValueError("Missing closing ']' in isotope notation")
-
-        self.position += 1
-
-        return Atom(
-            element=element,
-            isotope=isotope,
-        )
-
-    def repeat_last_branch(self, repeat_count: int):
-
-        if not self.branch_stack:
-            raise ValueError("Branch repetition has no valid branch context")
-
-        branch_root = self.current_atom
-
-        for _ in range(repeat_count - 1):
-            clone = Atom(
-                element=branch_root.element,
-                isotope=branch_root.isotope,
-                charge=branch_root.charge,
-                lone_pairs=branch_root.lone_pairs,
-                unpaired_electrons=branch_root.unpaired_electrons,
-                label=branch_root.label,
-            )
-
-            self.molecule.add_atom(clone)
-
-            bond = Bond(
-                atom_a=self.current_atom,
-                atom_b=clone,
-                order=1.0,
-                bond_type=BondType.SINGLE,
-            )
-
-            self.molecule.add_bond(bond)
-
-            self.current_atom = clone
