@@ -1,10 +1,4 @@
-"""
-OrgReact — Atom representation
-
-Custom chemical notation.
-No SMILES.
-
-Examples:
+"""Examples:
     C
     :C
     C.

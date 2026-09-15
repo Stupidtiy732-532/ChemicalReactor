@@ -1,26 +1,28 @@
-from chemistry.atoms import Atom
-from chemistry.bonds import Bond, BondType
-from chemistry.molecule import Molecule
+from chemistry.parser import ChemicalParser
+from chemistry.valency import infer_implicit_hydrogens
 
 
 def main():
-    molecule = Molecule()
 
-    carbon_1 = molecule.add_atom(Atom("C"))
-    carbon_2 = molecule.add_atom(Atom("C"))
+    examples = [
+        "C-C",
+        "C=C",
+        "C#C",
+        "CH4",
+        "CH3-CH(CH3)-CH3",
+        "CH3-C(CH3)2-CH3",
+        "C(CH3)4",
+    ]
 
-    molecule.add_bond(
-        Bond(
-            atom_a=carbon_1,
-            atom_b=carbon_2,
-            order=1.0,
-            bond_type=BondType.SINGLE,
-        )
-    )
+    for formula in examples:
 
-    print(molecule)
-    print("Formula:", molecule.formula())
-    print("Neighbors of carbon 1:", molecule.neighbors(0))
+        molecule = ChemicalParser(formula).parse()
+
+        infer_implicit_hydrogens(molecule)
+
+        print(formula)
+        print(molecule.formula())
+        print()
 
 
 if __name__ == "__main__":

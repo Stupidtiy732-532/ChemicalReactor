@@ -1,10 +1,3 @@
-"""
-OrgReact — Molecule representation
-
-Atoms are vertices.
-Bonds are edges.
-"""
-
 from chemistry.atoms import Atom
 from chemistry.bonds import Bond
 
