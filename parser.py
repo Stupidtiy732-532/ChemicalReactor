@@ -1,6 +1,9 @@
 from molecule import Molecule
 
 
+ELEMENTS = sorted(Molecule.ELEMENTS, key=len, reverse=True)
+
+
 class Lexer:
 
     ELEMENTS = sorted(

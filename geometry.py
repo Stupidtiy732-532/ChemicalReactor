@@ -1,5 +1,6 @@
 import math
 from molecule import Vector3D
+from collections import deque
 
 
 class GeometryEngine:
@@ -125,11 +126,10 @@ class GeometryEngine:
             0.0
         )
 
-        queue = [root]
+        queue = deque([root])
 
         while queue:
-
-            current = queue.pop(0)
+            current = queue.popleft()
 
             current_atom = self.molecule.get_atom(
                 current
@@ -184,52 +184,29 @@ class GeometryEngine:
     # ==================================================
 
     def _directions(self, count):
-
         if count == 1:
-
-            return [
-                Vector3D(1.0, 0.0, 0.0)
-            ]
+            return [Vector3D(1.0, 0.0, 0.0)]
 
         if count == 2:
-
             angle = math.radians(120.0)
-
             return [
-                Vector3D(
-                    1.0,
-                    0.0,
-                    0.0
-                ),
-                Vector3D(
-                    math.cos(angle),
-                    math.sin(angle),
-                    0.0
-                )
+                Vector3D(1.0, 0.0, 0.0),
+                Vector3D(math.cos(angle), math.sin(angle), 0.0),
             ]
 
         if count == 3:
-
+            y = math.sqrt(3) / 2
             return [
                 Vector3D(1.0, 0.0, 0.0),
-                Vector3D(
-                    -0.5,
-                    math.sqrt(3) / 2,
-                    0.0
-                ),
-                Vector3D(
-                    -0.5,
-                    -math.sqrt(3) / 2,
-                    0.0
-                )
+                Vector3D(-0.5, y, 0.0),
+                Vector3D(-0.5, -y, 0.0),
             ]
 
-        # Approximate tetrahedral arrangement
         return [
             Vector3D(1.0, 1.0, 1.0),
             Vector3D(1.0, -1.0, -1.0),
             Vector3D(-1.0, 1.0, -1.0),
-            Vector3D(-1.0, -1.0, 1.0)
+            Vector3D(-1.0, -1.0, 1.0),
         ]
 
     # ==================================================
