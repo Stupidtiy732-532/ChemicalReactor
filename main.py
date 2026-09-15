@@ -36,6 +36,7 @@ def show_error(message):
 
 def request_structure():
     print("Enter a molecular structure.")
+    print("Type 'help' for notation help.")
     print("Structure > ", end="")
     return input().strip()
 
@@ -255,6 +256,112 @@ def molecule_menu(molecule):
         pause()
 
 
+def show_help():
+    clear_screen()
+    banner()
+    header("STRUCTURE NOTATION")
+
+    print("""
+Atoms
+-----
+C        Carbon
+O        Oxygen
+N        Nitrogen
+Cl       Chlorine
+Na       Sodium
+
+Hydrogens
+---------
+C H      One hydrogen
+CH3      Three hydrogens
+[NH4^+]  Four hydrogens inside brackets
+
+Bonds
+-----
+-        Single bond
+=        Double bond
+#        Triple bond
+≡        Triple bond
+-=       Triple bond
+=-       Triple bond
+
+Branches
+--------
+( ... )  Branch from the previous atom
+
+Rings
+-----
+@number  Ring connection marker
+
+Example:
+C@1-C-C-C-C-C@1
+
+Isotopes
+--------
+_element_mass
+
+Example:
+C_13
+O_18
+
+Charges
+-------
+^+       +1
+^-       -1
+^2+      +2
+^+2      +2
+^++      +2
+^--      -2
+
+Radicals
+--------
+.        One radical electron
+
+Examples:
+C.
+..C
+
+Lone pairs
+----------
+:        One lone pair
+
+Examples:
+O:
+O::
+
+Markers
+-------
+<name>       Attach a marker
+X<name>      Attach a marker
+
+Examples:
+C<central>
+X<central>
+[O<X>]
+
+Bracket atoms
+-------------
+[ ... ]  Explicit atom with modifiers
+
+Examples:
+[NH4^+]
+[O^2-]
+[C_13H4]
+
+Important
+---------
+This notation uses explicit atoms.
+It does NOT use SMILES-style implicit
+carbon backbones.
+
+Spaces are ignored.
+
+Press Enter to return.
+""")
+
+    input()
+
+
 def main_menu():
     while True:
         clear_screen()
@@ -262,10 +369,11 @@ def main_menu():
 
         print(
             "1. Create / analyze molecule\n"
-            "2. Exit\n"
+            "2. Notation help\n"
+            "3. Exit\n"
         )
 
-        choice = input("Select option > ").strip()
+        choice = input("Select option > ").strip().lower()
 
         if choice == "1":
             molecule = parse_user_structure()
@@ -273,7 +381,10 @@ def main_menu():
             if molecule is not None:
                 molecule_menu(molecule)
 
-        elif choice == "2":
+        elif choice in ("2", "help", "h"):
+            show_help()
+
+        elif choice in ("3", "exit", "q"):
             clear_screen()
             banner()
             print("Goodbye.")
