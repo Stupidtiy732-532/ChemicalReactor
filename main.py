@@ -1,41 +1,29 @@
 from chemistry.parser import ChemicalParser
-from chemistry.functional_groups import find_functional_groups
+from chemistry.engine import ReactionEngine
 
 
 def main():
 
-    examples = [
-        "C-O-H",
-        "C-O-C",
-        "C=O",
-        "C(=O)-O",
-        "C(=O)-N",
-        "C-Cl",
-    ]
+    engine = ReactionEngine()
 
-    for notation in examples:
+    print("Available reactions:\n")
+    engine.list_reactions()
 
-        print(f"Input: {notation}")
+    reactant = ChemicalParser("C=C").parse()
 
-        try:
-            molecule = ChemicalParser(notation).parse()
-            groups = find_functional_groups(molecule)
+    result = engine.run(
+        "alkene_hydrogenation",
+        reactant,
+    )
 
-            print(f"Formula: {molecule.formula()}")
+    print("Reaction:", result.reaction_id)
+    print("Reactants:", len(result.reactants))
+    print("Products:", len(result.products))
 
-            if not groups:
-                print("Groups:  none")
-            else:
-                for group in groups:
-                    print(
-                        f"Group:   {group.name} — "
-                        f"{group.description}"
-                    )
+    print("\nObservations:")
 
-        except Exception as error:
-            print(f"ERROR: {error}")
-
-        print()
+    for observation in result.observations:
+        print("-", observation)
 
 
 if __name__ == "__main__":
