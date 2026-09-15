@@ -32,10 +32,25 @@ class ReactionResult:
 
 class ReactionEngine:
     def react(self, molecule, reagent, conditions=""):
-        reagent_clean = reagent.lower().replace(" ", "")
+        reagent_clean = (
+            reagent.lower()
+            .replace(" ", "")
+            .replace("₄", "4")
+            .replace("₂", "2")
+        )
+
         conditions_clean = conditions.lower().replace(" ", "")
 
-        groups = detect_functional_groups(molecule)
+        # Hydrogenation must be checked BEFORE generic reduction.
+        if reagent_clean in {
+            "h2/ni",
+            "h2/pd",
+            "h2/pt",
+            "h2",
+            "h₂/ni",
+            "h₂",
+        }:
+            return self.hydrogenation(molecule)
 
         if self.is_oxidant(reagent_clean):
             return self.oxidation(molecule)
@@ -47,27 +62,42 @@ class ReactionEngine:
             return self.aqueous_substitution(molecule)
 
         if self.is_alcoholic_koh(reagent_clean, conditions_clean):
-            return self.elimination(molecule)
+            try:
+                return self.elimination(molecule)
+            except ValueError:
+                raise ValueError(
+                    "KOH(alc) eliminates HX from haloalkanes. "
+                    "It does not normally dehydrate alcohols. "
+                    "For alcohol dehydration use conc. H2SO4 or H3PO4 with heat."
+                )
 
-        if reagent_clean in {"br2", "bromine"}:
+        if reagent_clean in {"br2", "bromine", "br₂"}:
             return self.bromination(molecule)
-
-        if reagent_clean in {"h2/n i", "h2/ni", "h2", "h2/pd", "h2/pt"}:
-            return self.hydrogenation(molecule)
 
         if reagent_clean in {"na", "sodium"}:
             return self.sodium_reaction(molecule)
 
-        if reagent_clean in {"nahco3", "nahco₃", "sodiumbicarbonate"}:
+        if reagent_clean in {
+            "nahco3",
+            "nahco₃",
+            "sodiumbicarbonate",
+        }:
             return self.bicarbonate_reaction(molecule)
 
         if reagent_clean in {"hbr", "hcl", "hi"}:
-            return self.hydrohalogenation(molecule, reagent_clean)
+            return self.hydrohalogenation(
+                molecule,
+                reagent_clean,
+            )
 
         if reagent_clean in {"h2o/h+", "h2o", "dil.h2so4"}:
             return self.hydration(molecule)
 
-        if reagent_clean in {"conc.h2so4", "h2so4", "h3po4"}:
+        if reagent_clean in {
+            "conc.h2so4",
+            "h2so4",
+            "h3po4",
+        }:
             return self.dehydration(molecule)
 
         raise ValueError(
@@ -113,12 +143,11 @@ class ReactionEngine:
 
     def is_alcoholic_koh(self, reagent, conditions):
         return (
-            reagent in {"koh", "naoh"}
-            and (
-                "alc" in conditions
-                or "alcoholic" in conditions
-                or "heat" in conditions
-            )
+                reagent in {"koh", "naoh"}
+                and (
+                        "alc" in conditions
+                        or "alcoholic" in conditions
+                )
         )
 
     def oxidation(self, molecule):
@@ -402,29 +431,39 @@ class ReactionEngine:
         product = molecule.clone()
 
         for bond in product.bonds:
-            if bond.order in {2, 3}:
-                a = product.atoms[bond.a]
-                b = product.atoms[bond.b]
+            if bond.order not in {2, 3}:
+                continue
 
-                if a.element == "C" and b.element == "C":
-                    if bond.order == 2:
-                        bond.order = 1
-                        a.hydrogens += 1
-                        b.hydrogens += 1
-                    else:
-                        bond.order = 2
-                        a.hydrogens += 1
-                        b.hydrogens += 1
+            a = product.atoms[bond.a]
+            b = product.atoms[bond.b]
 
-                    return ReactionResult(
-                        molecule,
-                        [product],
-                        f"{molecule.condensed()} + H₂ → "
-                        f"{product.condensed()}",
-                        "Catalytic hydrogenation reduces the carbon-carbon multiple bond.",
-                    )
+            if a.element != "C" or b.element != "C":
+                continue
 
-        raise ValueError("No C=C or C≡C bond found.")
+            if bond.order == 2:
+                # Alkene → alkane
+                bond.order = 1
+                a.hydrogens += 1
+                b.hydrogens += 1
+
+            elif bond.order == 3:
+                # Alkyne → alkene
+                bond.order = 2
+                a.hydrogens += 1
+                b.hydrogens += 1
+
+            return ReactionResult(
+                molecule,
+                [product],
+                f"{molecule.condensed()} + H₂/Ni → "
+                f"{product.condensed()}",
+                "Catalytic hydrogenation reduces the carbon-carbon multiple bond.",
+            )
+
+        raise ValueError(
+            "No C=C or C≡C bond found. "
+            "Use notation such as CH2=CH2 or CH3-C#CH."
+        )
 
     def sodium_reaction(self, molecule):
         groups = detect_functional_groups(molecule)

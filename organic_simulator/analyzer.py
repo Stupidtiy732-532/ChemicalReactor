@@ -31,6 +31,11 @@ def tokenize(text):
     i = 0
 
     while i < len(text):
+        if text[i] in "=#-":
+            tokens.append(text[i])
+            i += 1
+            continue
+
         found = False
 
         for token in GROUP_TOKENS:
@@ -133,18 +138,32 @@ def parse_structure(text):
 
     molecule = Molecule()
     previous_attachment = None
+    pending_bond = 1
 
     for token in tokens:
+        if token == "-":
+            pending_bond = 1
+            continue
+
+        if token == "=":
+            pending_bond = 2
+            continue
+
+        if token == "#":
+            pending_bond = 3
+            continue
+
         attachment, _ = parse_group(molecule, token)
 
         if previous_attachment is not None:
             molecule.add_bond(
                 previous_attachment,
                 attachment,
-                1,
+                pending_bond,
             )
 
         previous_attachment = attachment
+        pending_bond = 1
 
     return molecule
 
