@@ -3,7 +3,7 @@ from __future__ import annotations
 from physics.particles import Particle
 
 
-def integrate_particle(
+def integrate(
     particle: Particle,
     dt: float,
 ) -> None:

@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 from engine.state import SimulationState
-from numerical.integrators.euler import integrate_particle
+from numerical.integrators.velocity_verlet import integrate
 from physics.electromagnetism.coulomb import force as coulomb_force
 
 
 def calculate_forces(state: SimulationState) -> None:
+    """
+    Calculate all currently active classical forces.
+
+    At present this consists only of electrostatic Coulomb forces.
+    """
+
     for particle in state.particles:
         particle.clear_force()
 
@@ -28,5 +34,8 @@ def newtonian_electromagnetic_step(
 ) -> None:
     calculate_forces(state)
 
-    for particle in state.particles:
-        integrate_particle(particle, dt)
+    integrate(
+        state=state,
+        dt=dt,
+        calculate_forces=calculate_forces,
+    )
