@@ -3,11 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from physics.particles import Particle
+
 
 @dataclass
 class SimulationState:
     time: float = 0.0
-    particles: list[Any] = field(default_factory=list)
+    particles: list[Particle] = field(default_factory=list)
     fields: dict[str, Any] = field(default_factory=dict)
     systems: dict[str, Any] = field(default_factory=dict)
 
