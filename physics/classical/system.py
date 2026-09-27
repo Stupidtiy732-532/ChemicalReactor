@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from engine.state import SimulationState
-from physics.classical.newton import update_particle
+from numerical.integrators.euler import integrate_particle
 from physics.electromagnetism.coulomb import force as coulomb_force
 
 
@@ -29,4 +29,4 @@ def newtonian_electromagnetic_step(
     calculate_forces(state)
 
     for particle in state.particles:
-        update_particle(particle, dt)
+        integrate_particle(particle, dt)
